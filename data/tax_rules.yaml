@@ -1,0 +1,12 @@
+demo_label: "공모전 데모용 단순 추정 규칙"
+effective_date: "2026-07-30"
+last_verified_at: "2026-07-30"
+interest_income_tax_rate: 0.154
+overseas_capital_gains_tax_rate: 0.22
+overseas_capital_gains_basic_deduction_krw: 2500000
+domestic_stock_transaction_cost_assumption: 0.001
+overseas_stock_transaction_cost_assumption: 0.0025
+source_references:
+  - "source:nts-interest"
+  - "source:kbsec-overseas-tax"
+disclaimer: "실제 세금과 비용은 상품, 계좌, 거래 시점 및 법령에 따라 달라질 수 있습니다."

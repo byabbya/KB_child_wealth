@@ -1,0 +1,90 @@
+{
+  "demoLabel": "공모전 데모용 샘플 데이터",
+  "lastReviewedAt": "2026-07-30",
+  "sources": [
+    {
+      "id": "source:kb-youth-account",
+      "name": "KB국민은행 예금상품 - KB Young Youth 통장",
+      "provider": "KB국민은행",
+      "url": "https://obank.kbstar.com/quics?page=C016528",
+      "official": true
+    },
+    {
+      "id": "source:kb-youth-savings",
+      "name": "KB국민은행 예금상품 - KB Young Youth 적금",
+      "provider": "KB국민은행",
+      "url": "https://obank.kbstar.com/quics?cc=b061496%3Ab061645&isNew=Y&page=C016613&prcode=DP01000940",
+      "official": true
+    },
+    {
+      "id": "source:kb-my-savings",
+      "name": "KB국민은행 예금상품 - KB내맘대로적금",
+      "provider": "KB국민은행",
+      "url": "https://obank.kbstar.com/quics?page=C016528",
+      "official": true
+    },
+    {
+      "id": "source:kb-star-deposit",
+      "name": "KB국민은행 예금상품 - KB Star 정기예금",
+      "provider": "KB국민은행",
+      "url": "https://obank.kbstar.com/quics?cc=b061496%3Ab061645&isNew=N&page=C016613&prcode=DP01000938",
+      "official": true
+    },
+    {
+      "id": "source:kb-esg-bond-fund",
+      "name": "KB국민은행 펀드상품 - KB스타 ESG 우량 중단기채",
+      "provider": "KB국민은행",
+      "url": "https://obank.kbstar.com/quics?cc=b064273%3Ab064312&page=C020710&prcode=KF04008993",
+      "official": true
+    },
+    {
+      "id": "source:kb-on-mixed-fund",
+      "name": "KB국민은행 펀드 포트폴리오",
+      "provider": "KB국민은행",
+      "url": "https://obank.kbstar.com/quics?page=C055790",
+      "official": true
+    },
+    {
+      "id": "source:kb-deposit-register",
+      "name": "KB국민은행 보호금융상품등록부",
+      "provider": "KB국민은행",
+      "url": "https://img2.kbstar.com/obj/ocommon/deposit_Insurance_260101.pdf",
+      "official": true
+    },
+    {
+      "id": "source:kbsec-mable",
+      "name": "KB증권 M-able 서비스 소개",
+      "provider": "KB증권",
+      "url": "https://www.kbsec.com/go.able?linkcd=m06080017",
+      "official": true
+    },
+    {
+      "id": "source:kbsec-global",
+      "name": "KB증권 해외주식·글로벌 ETF 안내",
+      "provider": "KB증권",
+      "url": "https://www.kbsec.com/go.able?linkcd=s011200040002",
+      "official": true
+    },
+    {
+      "id": "source:demo-policy",
+      "name": "공모전 데모 필터 검증 데이터",
+      "provider": "데모",
+      "url": null,
+      "official": false
+    },
+    {
+      "id": "source:nts-interest",
+      "name": "국세청 금융(이자·배당)소득 안내",
+      "provider": "국세청",
+      "url": "https://www.nts.go.kr/nts/cm/cntnts/cntntsView.do?cntntsId=7914&mi=40359",
+      "official": true
+    },
+    {
+      "id": "source:kbsec-overseas-tax",
+      "name": "KB증권 해외주식 양도소득세 안내",
+      "provider": "KB증권",
+      "url": "https://www.kbsec.com/go.able?linkcd=s040426040000",
+      "official": true
+    }
+  ]
+}

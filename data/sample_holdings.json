@@ -1,0 +1,134 @@
+{
+  "demoLabel": "공모전 데모용 샘플 데이터",
+  "asOf": "2026-07-30",
+  "children": [
+    {
+      "childId": "child-minseo",
+      "name": "김민서",
+      "birthDate": "2014-05-18",
+      "goal": "대학 입학 준비",
+      "goalAmount": 80000000,
+      "goalDate": "2034-03-01"
+    }
+  ],
+  "bankAccounts": [
+    {
+      "accountId": "bank-001",
+      "childId": "child-minseo",
+      "provider": "KB국민은행",
+      "productId": "KB-YOUNG-ACCOUNT",
+      "accountName": "생활·대기자금",
+      "balance": 5400000,
+      "maturityDate": null,
+      "earlyTerminationLoss": 0
+    },
+    {
+      "accountId": "bank-002",
+      "childId": "child-minseo",
+      "provider": "KB국민은행",
+      "productId": "KB-YOUNG-SAVINGS",
+      "accountName": "꿈 저축",
+      "balance": 7200000,
+      "maturityDate": "2026-10-12",
+      "earlyTerminationLoss": 185000
+    },
+    {
+      "accountId": "bank-003",
+      "childId": "child-minseo",
+      "provider": "KB국민은행",
+      "productId": "KB-STAR-DEPOSIT",
+      "accountName": "교육비 정기예금",
+      "balance": 10000000,
+      "maturityDate": "2027-04-20",
+      "earlyTerminationLoss": 276000
+    },
+    {
+      "accountId": "bank-004",
+      "childId": "child-minseo",
+      "provider": "KB국민은행",
+      "productId": "KB-YOUTH-LEGACY",
+      "accountName": "기존 청소년통장",
+      "balance": 1100000,
+      "maturityDate": null,
+      "earlyTerminationLoss": 0
+    }
+  ],
+  "securitiesAccounts": [
+    {
+      "accountId": "sec-001",
+      "childId": "child-minseo",
+      "provider": "KB증권",
+      "accountName": "자녀 종합위탁",
+      "cashBalance": 1200000,
+      "pendingDividends": 120000,
+      "consent": true
+    }
+  ],
+  "securitiesHoldings": [
+    {
+      "holdingId": "holding-001",
+      "accountId": "sec-001",
+      "assetId": "KBSEC-KR-ETF-200",
+      "quantity": 122,
+      "marketValue": 5100000,
+      "costBasis": 4720000
+    },
+    {
+      "holdingId": "holding-002",
+      "accountId": "sec-001",
+      "assetId": "KBSEC-US-ETF-VT",
+      "quantity": 19,
+      "marketValue": 4300000,
+      "costBasis": 3950000
+    },
+    {
+      "holdingId": "holding-003",
+      "accountId": "sec-001",
+      "assetId": "KBSEC-US-STOCK-AAPL",
+      "quantity": 7,
+      "marketValue": 1800000,
+      "costBasis": 1650000
+    }
+  ],
+  "giftHistory": [
+    {
+      "giftId": "gift-001",
+      "date": "2019-03-02",
+      "amount": 5000000,
+      "memo": "초등학교 입학 준비"
+    },
+    {
+      "giftId": "gift-002",
+      "date": "2022-05-18",
+      "amount": 6000000,
+      "memo": "생일 증여"
+    },
+    {
+      "giftId": "gift-003",
+      "date": "2025-01-15",
+      "amount": 7000000,
+      "memo": "장기 저축 재원"
+    }
+  ],
+  "cashFlows": {
+    "newBankDeposit": 500000,
+    "maturedDeposits": 0,
+    "securitiesCashAndDividends": 1320000
+  },
+  "performance": {
+    "periodMonths": 12,
+    "portfolioAfterTaxReturn": 4.1,
+    "mainCauses": [
+      "해외 ETF의 원화 환산 수익 기여",
+      "국내 주식시장 변동성 확대",
+      "해외 개별주식 집중도 상승"
+    ]
+  },
+  "eligibilityEvidence": {
+    "kb_account": "confirmed",
+    "child_allowance": "possible",
+    "fingerprint": "unknown",
+    "auto_transfer": "confirmed",
+    "kb_salary": "unknown"
+  }
+}
