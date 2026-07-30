@@ -3,12 +3,11 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   aggregateHoldings,
-  calculateRiskLevel,
+  calculatePreferenceAllocation,
   eligibleBankProducts,
   eligibleSecuritiesAssets,
   generatePlan,
   getRateQuote,
-  getTargetAllocation,
   parseCsv,
   parseTaxYaml,
   shouldKeepDeposit,
@@ -32,17 +31,61 @@ const context = {
   horizonYears: 8,
   monthlyContribution: 500000,
 };
+const defaultProfile = {
+  assetRanking: ["savings", "deposit", "stock", "bond"],
+  strategyRanking: ["etf", "individual", "us", "domestic"],
+  horizonYears: 8,
+  monthlyContribution: 500000,
+};
 
-test("risk score and horizon guardrails produce deterministic allocations", () => {
-  assert.deepEqual(calculateRiskLevel([2, 2, 2, 2]), {
-    score: 8,
-    label: "위험중립형",
-    index: 2,
+test("preference rankings produce deterministic allocations", () => {
+  const preference = calculatePreferenceAllocation(defaultProfile);
+  assert.equal(preference.label, "적금 우선 · ETF 중심 · 미주 중심");
+  assert.deepEqual(preference.target, {
+    cash: 10,
+    savings: 36,
+    deposit: 27,
+    fund: 9,
+    domesticEtf: 5,
+    overseasEtf: 7.6,
+    domesticStock: 2.2,
+    overseasStock: 3.2,
   });
-  const short = getTargetAllocation("공격투자형", 2);
-  const risky = short.domesticEtf + short.overseasEtf + short.domesticStock + short.overseasStock;
-  assert.ok(risky <= 20.1);
-  assert.equal(short.domesticStock + short.overseasStock, 0);
+});
+
+test("reordered strategy changes ETF, individual stock and market weights", () => {
+  const preference = calculatePreferenceAllocation({
+    ...defaultProfile,
+    assetRanking: ["stock", "savings", "deposit", "bond"],
+    strategyRanking: ["individual", "etf", "domestic", "us"],
+  });
+  assert.equal(preference.label, "주식 우선 · 개별종목 중심 · 국내종목 중심");
+  assert.ok(preference.target.domesticStock > preference.target.overseasStock);
+  assert.ok(
+    preference.target.domesticStock + preference.target.overseasStock >
+      preference.target.domesticEtf + preference.target.overseasEtf,
+  );
+});
+
+test("investment horizon guardrails cap growth and individual-stock exposure", () => {
+  const short = calculatePreferenceAllocation({
+    ...defaultProfile,
+    assetRanking: ["stock", "savings", "deposit", "bond"],
+    horizonYears: 2,
+  }).target;
+  const shortGrowth =
+    short.domesticEtf + short.overseasEtf + short.domesticStock + short.overseasStock;
+  assert.ok(shortGrowth <= 20.1);
+
+  const medium = calculatePreferenceAllocation({
+    ...defaultProfile,
+    assetRanking: ["stock", "savings", "deposit", "bond"],
+    strategyRanking: ["individual", "etf", "domestic", "us"],
+    horizonYears: 4,
+  }).target;
+  assert.ok(medium.domesticStock + medium.overseasStock <= 10.1);
+  const safeTotal = medium.cash + medium.savings + medium.deposit + medium.fund;
+  assert.ok(safeTotal >= 64.9);
 });
 
 test("KB bank products are searched before any external, adult-only or discontinued product", () => {
@@ -107,7 +150,7 @@ test("discontinued products remain visible as holdings but never become new reco
     bankProducts: banks,
     securitiesAssets: securities,
     data,
-    profile: { riskScores: [2, 2, 2, 2], horizonYears: 8, monthlyContribution: 500000 },
+    profile: defaultProfile,
     taxRules,
   });
   assert.ok(!plan.recommendations.some((item) => item.id === "KB-YOUTH-LEGACY"));
@@ -138,12 +181,12 @@ test("large early-termination loss or near maturity keeps KB deposits intact", (
   );
 });
 
-test("Mock-only demo builds a full plan and explains unavailable KB Securities candidates", () => {
+test("Mock-only prototype builds a full plan and explains unavailable KB Securities candidates", () => {
   const connectedPlan = generatePlan({
     bankProducts: banks,
     securitiesAssets: securities,
     data,
-    profile: { riskScores: [2, 2, 2, 2], horizonYears: 8, monthlyContribution: 500000 },
+    profile: defaultProfile,
     taxRules,
   });
   assert.ok(connectedPlan.recommendations.length >= 6);
@@ -153,7 +196,7 @@ test("Mock-only demo builds a full plan and explains unavailable KB Securities c
     securitiesAssets: securities,
     data,
     connected: false,
-    profile: { riskScores: [2, 2, 2, 2], horizonYears: 8, monthlyContribution: 500000 },
+    profile: defaultProfile,
     taxRules,
   });
   assert.ok(disconnectedPlan.limitations.some((item) => /KB증권 계좌 연결/.test(item.message)));

@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { demoCatalog } from "@/lib/catalog";
+import { prototypeCatalog } from "@/lib/catalog";
 import { ASSET_CLASSES, ASSET_LABELS, generatePlan } from "@/lib/engine.mjs";
 import { StaticProductLinkProvider } from "@/lib/providers";
 
-const STORAGE_KEY = "kb-child-portfolio-demo:v1";
+const STORAGE_KEY = "kb-child-portfolio-prototype:v2";
+const LEGACY_STORAGE_KEY = "kb-child-portfolio-demo:v1";
 const COLORS: Record<string, string> = {
   cash: "#8c8c8c",
   savings: "#f0b90b",
@@ -17,15 +18,32 @@ const COLORS: Record<string, string> = {
   overseasStock: "#9a73d9",
 };
 const LABELS = ASSET_LABELS as Record<string, string>;
-const TAX_RULES = demoCatalog.taxRules as Record<string, string | number>;
+const TAX_RULES = prototypeCatalog.taxRules as Record<string, string | number>;
 
-type DemoState = {
+type AssetPreference = "savings" | "deposit" | "stock" | "bond";
+type StrategyPreference = "etf" | "individual" | "us" | "domestic";
+
+const ASSET_PREFERENCE_LABELS: Record<AssetPreference, string> = {
+  savings: "적금",
+  deposit: "예금",
+  stock: "주식",
+  bond: "채권",
+};
+const STRATEGY_PREFERENCE_LABELS: Record<StrategyPreference, string> = {
+  etf: "ETF 중심",
+  individual: "개별종목 중심",
+  us: "미주 중심",
+  domestic: "국내종목 중심",
+};
+
+type PrototypeState = {
   connected: boolean;
   approved: boolean;
   activeTab: "portfolio" | "rebalance";
   horizonYears: number;
   monthlyContribution: number;
-  riskScores: number[];
+  assetRanking: AssetPreference[];
+  strategyRanking: StrategyPreference[];
   giftHistory: Array<{ giftId: string; date: string; amount: number; memo: string }>;
 };
 
@@ -35,15 +53,53 @@ type SelectedItem = Record<string, unknown> & {
   mockLink: MockLink;
 };
 
-const initialState: DemoState = {
+const initialState: PrototypeState = {
   connected: true,
   approved: false,
   activeTab: "portfolio",
   horizonYears: 8,
   monthlyContribution: 500000,
-  riskScores: [2, 2, 2, 2],
-  giftHistory: demoCatalog.data.giftHistory,
+  assetRanking: ["savings", "deposit", "stock", "bond"],
+  strategyRanking: ["etf", "individual", "us", "domestic"],
+  giftHistory: prototypeCatalog.data.giftHistory,
 };
+
+function isRanking<T extends string>(value: unknown, allowed: readonly T[]): value is T[] {
+  return (
+    Array.isArray(value) &&
+    value.length === allowed.length &&
+    value.every((item) => allowed.includes(item)) &&
+    new Set(value).size === allowed.length
+  );
+}
+
+function migrateStoredState(value: unknown): PrototypeState {
+  if (!value || typeof value !== "object") return initialState;
+  const stored = value as Partial<PrototypeState>;
+  const assetKeys: AssetPreference[] = ["savings", "deposit", "stock", "bond"];
+  const strategyKeys: StrategyPreference[] = ["etf", "individual", "us", "domestic"];
+  return {
+    connected: typeof stored.connected === "boolean" ? stored.connected : initialState.connected,
+    approved: typeof stored.approved === "boolean" ? stored.approved : initialState.approved,
+    activeTab:
+      stored.activeTab === "portfolio" || stored.activeTab === "rebalance"
+        ? stored.activeTab
+        : initialState.activeTab,
+    horizonYears:
+      typeof stored.horizonYears === "number" ? stored.horizonYears : initialState.horizonYears,
+    monthlyContribution:
+      typeof stored.monthlyContribution === "number"
+        ? stored.monthlyContribution
+        : initialState.monthlyContribution,
+    assetRanking: isRanking(stored.assetRanking, assetKeys)
+      ? stored.assetRanking
+      : initialState.assetRanking,
+    strategyRanking: isRanking(stored.strategyRanking, strategyKeys)
+      ? stored.strategyRanking
+      : initialState.strategyRanking,
+    giftHistory: Array.isArray(stored.giftHistory) ? stored.giftHistory : initialState.giftHistory,
+  };
+}
 
 function currency(value: number) {
   return new Intl.NumberFormat("ko-KR", {
@@ -64,7 +120,7 @@ function providerClass(provider: string) {
 }
 
 export default function Dashboard() {
-  const [state, setState] = useState<DemoState>(initialState);
+  const [state, setState] = useState<PrototypeState>(initialState);
   const [hydrated, setHydrated] = useState(false);
   const [modal, setModal] = useState<null | "goal" | "gift" | "assets" | "mock">(null);
   const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(null);
@@ -76,12 +132,14 @@ export default function Dashboard() {
   const linkProvider = useMemo(() => new StaticProductLinkProvider(), []);
 
   useEffect(() => {
-    let storedState: DemoState | null = null;
+    let storedState: PrototypeState | null = null;
     try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored) storedState = { ...initialState, ...JSON.parse(stored) };
+      const stored =
+        window.localStorage.getItem(STORAGE_KEY) ??
+        window.localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (stored) storedState = migrateStoredState(JSON.parse(stored));
     } catch {
-      // 손상된 로컬 데모 상태는 안전하게 샘플값으로 대체합니다.
+      // 손상된 로컬 프로토타입 상태는 안전하게 샘플값으로 대체합니다.
     }
     const timer = window.setTimeout(() => {
       if (storedState) setState(storedState);
@@ -95,24 +153,32 @@ export default function Dashboard() {
   }, [hydrated, state]);
 
   const data = useMemo(
-    () => ({ ...demoCatalog.data, giftHistory: state.giftHistory }),
+    () => ({ ...prototypeCatalog.data, giftHistory: state.giftHistory }),
     [state.giftHistory],
   );
   const plan = useMemo(
     () =>
       generatePlan({
-        bankProducts: demoCatalog.bankProducts,
-        securitiesAssets: demoCatalog.securitiesAssets,
+        bankProducts: prototypeCatalog.bankProducts,
+        securitiesAssets: prototypeCatalog.securitiesAssets,
         data,
         profile: {
-          riskScores: state.riskScores,
+          assetRanking: state.assetRanking,
+          strategyRanking: state.strategyRanking,
           horizonYears: state.horizonYears,
           monthlyContribution: state.monthlyContribution,
         },
         connected: state.connected,
-        taxRules: demoCatalog.taxRules,
+        taxRules: prototypeCatalog.taxRules,
       }),
-    [data, state.connected, state.horizonYears, state.monthlyContribution, state.riskScores],
+    [
+      data,
+      state.assetRanking,
+      state.connected,
+      state.horizonYears,
+      state.monthlyContribution,
+      state.strategyRanking,
+    ],
   );
 
   const child = data.children[0];
@@ -147,8 +213,9 @@ export default function Dashboard() {
     setModal(null);
   }
 
-  function resetDemo() {
+  function resetPrototype() {
     window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(LEGACY_STORAGE_KEY);
     setState(initialState);
     setModal(null);
   }
@@ -164,8 +231,8 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="header-actions">
-          <span className="demo-chip">공모전 DEMO</span>
-          <button className="icon-button" onClick={resetDemo} aria-label="샘플 데이터 초기화">
+          <span className="prototype-chip">프로토타입</span>
+          <button className="icon-button" onClick={resetPrototype} aria-label="샘플 데이터 초기화">
             ↻
           </button>
         </div>
@@ -217,8 +284,8 @@ export default function Dashboard() {
                 <strong>{compactCurrency(giftTotal)}</strong>
               </div>
               <div>
-                <span>보호자 위험등급</span>
-                <strong>{plan.risk.label}</strong>
+                <span>선호 성향</span>
+                <strong>{plan.preference.label}</strong>
               </div>
             </div>
           </div>
@@ -285,7 +352,9 @@ export default function Dashboard() {
                   <span className="eyebrow">현재 vs 목표</span>
                   <h2>민서에게 맞는 자산 배분</h2>
                 </div>
-                <span className="risk-pill">{plan.risk.label} · {state.horizonYears}년</span>
+                <span className="preference-pill">
+                  {plan.preference.label} · {state.horizonYears}년
+                </span>
               </div>
 
               <div className="bar-block">
@@ -456,7 +525,7 @@ export default function Dashboard() {
             <p>
               {state.approved
                 ? "실제 가입이나 주문은 실행되지 않았습니다. 각 KB 채널에서 최종 조건을 확인해 주세요."
-                : "승인은 데모 상태만 저장하며 실제 금융거래를 실행하지 않습니다."}
+                : "승인은 프로토타입 상태만 저장하며 실제 금융거래를 실행하지 않습니다."}
             </p>
           </div>
           <button
@@ -469,7 +538,7 @@ export default function Dashboard() {
 
         <footer>
           <strong>KB 우리 아이 자산관리</strong>
-          <p>공모전 데모용 샘플 데이터 · 실제 금융자문, 계좌 개설 또는 주문 서비스가 아닙니다.</p>
+          <p>프로토타입용 샘플 데이터 · 실제 금융자문, 계좌 개설 또는 주문 서비스가 아닙니다.</p>
         </footer>
       </div>
 
@@ -518,7 +587,7 @@ export default function Dashboard() {
                       setModal(null);
                     }}
                   >
-                    데모 계좌 연결 동의
+                    프로토타입 계좌 연결 동의
                   </button>
                 ) : (
                   <button className="primary-button full-button" onClick={() => setModal(null)}>확인</button>
@@ -537,19 +606,13 @@ function GoalForm({
   setState,
   close,
 }: {
-  state: DemoState;
-  setState: React.Dispatch<React.SetStateAction<DemoState>>;
+  state: PrototypeState;
+  setState: React.Dispatch<React.SetStateAction<PrototypeState>>;
   close: () => void;
 }) {
-  const questions = [
-    "시장 하락 시 손실을 감내할 수 있어요",
-    "장기 투자 경험이 있어요",
-    "중간 인출 없이 목표까지 유지할 수 있어요",
-    "가격 변동이 있어도 계획을 유지할 수 있어요",
-  ];
   return (
     <div>
-      <span className="eyebrow">보호자 기준 4문항</span>
+      <span className="eyebrow">두 가지 선호 순위</span>
       <h2>목표·투자 성향 설정</h2>
       <label>
         남은 투자기간
@@ -572,27 +635,85 @@ function GoalForm({
           onChange={(event) => setState((current) => ({ ...current, monthlyContribution: Number(event.target.value) }))}
         />
       </label>
-      <div className="risk-questions">
-        {questions.map((question, index) => (
-          <label key={question}>
-            <span>{question}</span>
-            <input
-              type="range"
-              min="0"
-              max="4"
-              value={state.riskScores[index]}
-              onChange={(event) => {
-                const scores = [...state.riskScores];
-                scores[index] = Number(event.target.value);
-                setState((current) => ({ ...current, riskScores: scores }));
-              }}
-            />
-            <b>{state.riskScores[index]}점</b>
-          </label>
-        ))}
-      </div>
+      <RankingList
+        title="자산 선호 순위"
+        description="목표 포트폴리오의 적금·예금·주식·채권 비중에 반영합니다."
+        ranking={state.assetRanking}
+        labels={ASSET_PREFERENCE_LABELS}
+        onChange={(assetRanking) => setState((current) => ({ ...current, assetRanking }))}
+      />
+      <RankingList
+        title="투자 방식 순위"
+        description="주식 비중 안에서 ETF·개별종목과 미주·국내 배분에 반영합니다."
+        ranking={state.strategyRanking}
+        labels={STRATEGY_PREFERENCE_LABELS}
+        onChange={(strategyRanking) =>
+          setState((current) => ({ ...current, strategyRanking }))
+        }
+      />
+      <p className="form-note">
+        이 순위는 프로토타입의 목표 배분 기준이며 공식 투자성향 진단이 아닙니다.
+      </p>
       <button className="primary-button full-button" onClick={close}>추천 다시 계산</button>
     </div>
+  );
+}
+
+function RankingList<T extends string>({
+  title,
+  description,
+  ranking,
+  labels,
+  onChange,
+}: {
+  title: string;
+  description: string;
+  ranking: T[];
+  labels: Record<T, string>;
+  onChange: (ranking: T[]) => void;
+}) {
+  function move(index: number, offset: -1 | 1) {
+    const nextIndex = index + offset;
+    if (nextIndex < 0 || nextIndex >= ranking.length) return;
+    const next = [...ranking];
+    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+    onChange(next);
+  }
+
+  return (
+    <section className="ranking-section" aria-label={title}>
+      <div className="ranking-heading">
+        <strong>{title}</strong>
+        <span>1순위가 가장 높은 선호입니다.</span>
+      </div>
+      <p>{description}</p>
+      <ol className="ranking-list">
+        {ranking.map((item, index) => (
+          <li key={item}>
+            <span className="rank-number">{index + 1}</span>
+            <strong>{labels[item]}</strong>
+            <div className="rank-controls">
+              <button
+                type="button"
+                disabled={index === 0}
+                onClick={() => move(index, -1)}
+                aria-label={`${labels[item]} 순위 올리기`}
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                disabled={index === ranking.length - 1}
+                onClick={() => move(index, 1)}
+                aria-label={`${labels[item]} 순위 내리기`}
+              >
+                ↓
+              </button>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -601,7 +722,7 @@ function AssetsList({
   data,
 }: {
   plan: ReturnType<typeof generatePlan>;
-  data: typeof demoCatalog.data;
+  data: typeof prototypeCatalog.data;
 }) {
   return (
     <div>
@@ -616,7 +737,9 @@ function AssetsList({
           </div>
         ))}
         {data.securitiesHoldings.map((holding) => {
-          const asset = demoCatalog.securitiesAssets.find((item) => item.asset_id === holding.assetId);
+          const asset = prototypeCatalog.securitiesAssets.find(
+            (item) => item.asset_id === holding.assetId,
+          );
           return (
             <div key={holding.holdingId}>
               <span className="provider provider-securities">KB증권</span>

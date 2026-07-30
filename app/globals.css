@@ -111,7 +111,7 @@ button {
   gap: 10px;
 }
 
-.demo-chip,
+.prototype-chip,
 .mock-badge {
   border: 1px solid #e5c34f;
   border-radius: 999px;
@@ -479,7 +479,7 @@ button {
   letter-spacing: -0.04em;
 }
 
-.risk-pill,
+.preference-pill,
 .period-pill,
 .available-pill,
 .count-badge {
@@ -1138,30 +1138,91 @@ footer p {
   margin-top: 20px;
 }
 
-.risk-questions {
+.ranking-section {
   margin-top: 18px;
   padding: 15px;
   border-radius: 13px;
   background: #f8f6f2;
 }
 
-.risk-questions label {
-  display: grid !important;
-  grid-template-columns: 1fr 110px 28px;
-  align-items: center;
-  gap: 8px !important;
-  margin: 0 !important;
-  padding: 8px 0;
+.ranking-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.risk-questions input {
-  min-height: 18px;
+.ranking-heading strong {
+  font-size: 13px;
+}
+
+.ranking-heading span,
+.ranking-section > p {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.ranking-section > p {
+  margin: 5px 0 12px;
+  line-height: 1.5;
+}
+
+.ranking-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
   padding: 0;
-  accent-color: #b99400;
+  list-style: none;
 }
 
-.risk-questions b {
-  text-align: right;
+.ranking-list li {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 6px 8px;
+  border: 1px solid #e5e0d6;
+  border-radius: 10px;
+  background: white;
+}
+
+.rank-number {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--kb-yellow-soft);
+  color: #5f4d0b;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.ranking-list li > strong {
+  font-size: 12px;
+}
+
+.rank-controls {
+  display: flex;
+  gap: 4px;
+}
+
+.rank-controls button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid #d8d2c7;
+  border-radius: 8px;
+  background: #fff;
+  color: #4f493f;
+  font-size: 14px;
+}
+
+.rank-controls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.3;
 }
 
 .asset-list {
@@ -1266,7 +1327,7 @@ footer p {
     padding-top: 12px;
   }
 
-  .demo-chip {
+  .prototype-chip {
     display: none;
   }
 
@@ -1372,8 +1433,10 @@ footer p {
     padding: 26px 20px;
   }
 
-  .risk-questions label {
-    grid-template-columns: 1fr 70px 26px;
+  .ranking-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
   }
 }
 

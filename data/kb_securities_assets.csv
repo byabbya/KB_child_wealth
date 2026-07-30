@@ -7,6 +7,6 @@ KBSEC-KR-STOCK-SS,005930,삼성전자,KB증권,삼성전자,domestic_equity,stoc
 KBSEC-KR-STOCK-SK,000660,SK하이닉스,KB증권,SK하이닉스,domestic_equity,stock,KRX,KRW,5,,false,false,true,true,KB증권 M-able 국내주식,source:kbsec-mable,2026-07-30,2026-07-30,60,개별기업·업종 집중 위험
 KBSEC-US-STOCK-AAPL,AAPL,Apple,KB증권,Apple,global_equity,stock,NASDAQ,USD,5,,false,false,true,true,KB증권 M-able 해외주식,source:kbsec-global,2026-07-30,2026-07-30,60,환율과 개별기업 가격 변동 위험
 KBSEC-US-STOCK-MSFT,MSFT,Microsoft,KB증권,Microsoft,global_equity,stock,NASDAQ,USD,5,,false,false,true,true,KB증권 M-able 해외주식,source:kbsec-global,2026-07-30,2026-07-30,60,환율과 개별기업 가격 변동 위험
-KBSEC-FILTER-LEVERAGED,DEMO-LVG,필터 검증용 레버리지 ETF,KB증권,데모,domestic_equity,etf,KRX,KRW,6,0.5000,true,false,true,true,공모전 데모 검증 데이터,source:demo-policy,2026-07-30,2026-07-30,0,추천 금지 검증용
-KBSEC-FILTER-INVERSE,DEMO-INV,필터 검증용 인버스 ETF,KB증권,데모,domestic_equity,etf,KRX,KRW,6,0.5000,false,true,true,true,공모전 데모 검증 데이터,source:demo-policy,2026-07-30,2026-07-30,0,추천 금지 검증용
-KBSEC-FILTER-UNAPPROVED,DEMO-NA,필터 검증용 미승인 자산,KB증권,데모,global_equity,stock,NASDAQ,USD,6,,false,false,true,false,공모전 데모 검증 데이터,source:demo-policy,2026-07-30,2026-07-30,0,추천 금지 검증용
+KBSEC-FILTER-LEVERAGED,PROTO-LVG,필터 검증용 레버리지 ETF,KB증권,프로토타입,domestic_equity,etf,KRX,KRW,6,0.5000,true,false,true,true,프로토타입 검증 데이터,source:prototype-policy,2026-07-30,2026-07-30,0,추천 금지 검증용
+KBSEC-FILTER-INVERSE,PROTO-INV,필터 검증용 인버스 ETF,KB증권,프로토타입,domestic_equity,etf,KRX,KRW,6,0.5000,false,true,true,true,프로토타입 검증 데이터,source:prototype-policy,2026-07-30,2026-07-30,0,추천 금지 검증용
+KBSEC-FILTER-UNAPPROVED,PROTO-NA,필터 검증용 미승인 자산,KB증권,프로토타입,global_equity,stock,NASDAQ,USD,6,,false,false,true,false,프로토타입 검증 데이터,source:prototype-policy,2026-07-30,2026-07-30,0,추천 금지 검증용

@@ -108,7 +108,7 @@ export class StaticProductLinkProvider implements ProductLinkProvider {
             : action === "connect"
               ? "KB증권 계좌 연결"
               : "KB증권 M-able에서 상품 확인",
-      notice: `MVP에서는 실제 딥링크나 주문을 실행하지 않습니다. ${channel}의 데모 연결 화면입니다.`,
+      notice: `프로토타입에서는 실제 딥링크나 주문을 실행하지 않습니다. ${channel}의 Mock 연결 화면입니다.`,
     };
   }
 }

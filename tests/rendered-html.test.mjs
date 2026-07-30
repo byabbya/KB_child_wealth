@@ -23,5 +23,8 @@ test("renders the KB child asset management dashboard", async () => {
   assert.match(html, /추천 포트폴리오/);
   assert.match(html, /KB 적금 대비 성과 점검/);
   assert.match(html, /보호자 승인/);
+  assert.match(html, /프로토타입/);
+  assert.match(html, /선호 성향/);
+  assert.doesNotMatch(html, /공모전 데모|DEMO|로그인|signin-with-chatgpt/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/);
 });

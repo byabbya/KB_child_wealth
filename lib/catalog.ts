@@ -5,7 +5,7 @@ import holdings from "@/data/sample_holdings.json";
 import productSources from "@/data/product_sources.json";
 import { parseCsv, parseTaxYaml } from "./engine.mjs";
 
-export const demoCatalog = {
+export const prototypeCatalog = {
   bankProducts: parseCsv(bankCsv),
   securitiesAssets: parseCsv(securitiesCsv),
   data: holdings,
