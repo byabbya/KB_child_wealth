@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   aggregateHoldings,
+  applyAdvisorProposal,
   calculatePreferenceAllocation,
   eligibleBankProducts,
   eligibleSecuritiesAssets,
@@ -18,6 +19,8 @@ import {
   parsePolicyDocument,
 } from "../lib/rules.mjs";
 import {
+  GeminiLlmProvider,
+  PORTFOLIO_RESPONSE_SCHEMA,
   PortfolioPolicyValidator,
   runPortfolioAdvisor,
 } from "../lib/portfolio-agent.mjs";
@@ -277,6 +280,93 @@ test("portfolio validator rejects unknown products, unsafe weights and AI tax ov
   assert.equal(result.valid, false);
   assert.ok(result.violations.some((item) => /허용되지 않은 상품/.test(item)));
   assert.ok(result.violations.some((item) => /세금·수수료/.test(item)));
+});
+
+test("portfolio validator requires one matching recommendation for every positive allocation", () => {
+  const plan = buildPlan();
+  const input = {
+    profile: defaultProfile,
+    allowedCandidates: plan.recommendations.map((item) => ({
+      id: item.id,
+      assetClass: item.assetClass,
+    })),
+  };
+  const recommendations = plan.recommendations.map((item) => ({
+    assetClass: item.assetClass,
+    productId: item.id,
+    weight: item.targetWeight,
+    amount: 1,
+    action: "유지",
+    rationale: "검증용",
+  }));
+  recommendations.pop();
+  const result = new PortfolioPolicyValidator().validate(
+    { allocations: plan.target, recommendations },
+    input,
+  );
+  assert.equal(result.valid, false);
+  assert.ok(result.violations.some((item) => /대응하는 상품 추천이 없습니다/.test(item)));
+});
+
+test("validated AI allocation drives target amounts while ignoring AI-provided amounts", () => {
+  const plan = buildPlan();
+  const allocations = {
+    ...plan.target,
+    cash: plan.target.cash + 5,
+    savings: plan.target.savings - 5,
+  };
+  const recommendations = plan.recommendations.map((item) => ({
+    assetClass: item.assetClass,
+    productId: item.id,
+    weight: allocations[item.assetClass],
+    amount: 999_999_999,
+    action: item.assetClass === "cash" ? "추가입금" : "유지",
+    rationale: `AI 근거 ${item.assetClass}`,
+  }));
+  const effective = applyAdvisorProposal({
+    basePlan: plan,
+    proposal: { allocations, recommendations },
+    data,
+    bankProducts: banks,
+    investmentTaxRules,
+    feeAssumptions,
+  });
+  const cash = effective.recommendations.find((item) => item.assetClass === "cash");
+  assert.equal(effective.target.cash, 15);
+  assert.equal(cash.targetAmount, Math.round((plan.current.total * 15) / 100));
+  assert.notEqual(cash.targetAmount, 999_999_999);
+  assert.equal(cash.reason, "AI 근거 cash");
+  assert.equal(cash.advisorAction, "추가입금");
+  assert.ok(effective.rebalancing);
+});
+
+test("Gemini provider requests structured JSON without exposing the key in the URL", async () => {
+  const originalFetch = globalThis.fetch;
+  let requestUrl = "";
+  let requestOptions;
+  globalThis.fetch = async (url, options) => {
+    requestUrl = String(url);
+    requestOptions = options;
+    return new Response(JSON.stringify({
+      candidates: [{ content: { parts: [{ text: '{"summary":"ok"}' }] } }],
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  try {
+    const provider = new GeminiLlmProvider({ apiKey: "server-secret", model: "gemini-test" });
+    const result = await provider.complete([
+      { role: "system", content: "system" },
+      { role: "user", content: "user" },
+    ]);
+    assert.equal(result.model, "gemini-test");
+    assert.equal(result.content, '{"summary":"ok"}');
+    assert.doesNotMatch(requestUrl, /server-secret/);
+    assert.equal(requestOptions.headers["x-goog-api-key"], "server-secret");
+    const body = JSON.parse(requestOptions.body);
+    assert.equal(body.generationConfig.responseMimeType, "application/json");
+    assert.deepEqual(body.generationConfig.responseSchema, PORTFOLIO_RESPONSE_SCHEMA);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("agent uses deterministic fallback when Ollama is unavailable", async () => {

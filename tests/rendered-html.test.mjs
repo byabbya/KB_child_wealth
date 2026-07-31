@@ -20,14 +20,15 @@ test("renders the KB child asset management dashboard", async () => {
   assert.match(html, /<title>KB 우리 아이 자산관리<\/title>/i);
   assert.match(html, /KB스타뱅킹/);
   assert.match(html, /현재 가입 가능한 KB국민은행 및 KB증권 상품/);
-  assert.match(html, /추천 포트폴리오/);
+  assert.match(html, /포트폴리오 명세서/);
   assert.match(html, /PortfolioAdvisorAgent/);
-  assert.match(html, /AI가 구성하고, 금융 규칙이 검증합니다/);
+  assert.match(html, /현재 포트폴리오/);
+  assert.match(html, /규칙 기준 포트폴리오/);
   assert.match(html, /10년 증여재산공제 시뮬레이션/);
   assert.match(html, /고정 샘플 시나리오/);
   assert.match(html, /실제 자녀·계좌 정보를 조회하거나 연결하지 않습니다/);
   assert.match(html, /KB 적금 대비 성과 점검/);
-  assert.match(html, /보호자 승인/);
+  assert.doesNotMatch(html, /보호자 승인|보호자 최종 확인|승인 취소/);
   assert.match(html, /프로토타입/);
   assert.match(html, /선호 성향/);
   assert.doesNotMatch(html, /공모전 데모|DEMO|로그인|signin-with-chatgpt|KB증권 계좌 연결/);

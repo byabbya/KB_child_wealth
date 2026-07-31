@@ -1,11 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { prototypeCatalog } from "@/lib/catalog";
-import { ASSET_CLASSES, ASSET_LABELS, generatePlan } from "@/lib/engine.mjs";
+import {
+  ASSET_CLASSES,
+  ASSET_LABELS,
+  applyAdvisorProposal,
+  generatePlan,
+} from "@/lib/engine.mjs";
 import { StaticProductLinkProvider } from "@/lib/providers";
 
-const STORAGE_KEY = "kb-child-portfolio-prototype:v3";
+const STORAGE_KEY = "kb-child-portfolio-prototype:v4";
+const PREVIOUS_STORAGE_KEY = "kb-child-portfolio-prototype:v3";
 const LEGACY_STORAGE_KEY = "kb-child-portfolio-demo:v1";
 const COLORS: Record<string, string> = {
   cash: "#8c8c8c",
@@ -37,7 +43,6 @@ const STRATEGY_PREFERENCE_LABELS: Record<StrategyPreference, string> = {
 };
 
 type PrototypeState = {
-  approved: boolean;
   activeTab: "portfolio" | "rebalance";
   horizonYears: number;
   monthlyContribution: number;
@@ -87,7 +92,6 @@ type SelectedItem = Record<string, unknown> & {
 };
 
 const initialState: PrototypeState = {
-  approved: false,
   activeTab: "portfolio",
   horizonYears: 8,
   monthlyContribution: 500000,
@@ -118,7 +122,6 @@ function migrateStoredState(value: unknown): PrototypeState {
   const assetKeys: AssetPreference[] = ["savings", "deposit", "stock", "bond"];
   const strategyKeys: StrategyPreference[] = ["etf", "individual", "us", "domestic"];
   return {
-    approved: typeof stored.approved === "boolean" ? stored.approved : initialState.approved,
     activeTab:
       stored.activeTab === "portfolio" || stored.activeTab === "rebalance"
         ? stored.activeTab
@@ -168,7 +171,10 @@ export default function Dashboard() {
   const [modal, setModal] = useState<null | "goal" | "gift" | "assets" | "mock">(null);
   const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(null);
   const [aiAdvice, setAiAdvice] = useState<AiAdvice | null>(null);
+  const [aiAdviceSignature, setAiAdviceSignature] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [expandedAssetClass, setExpandedAssetClass] = useState<string | null>(null);
+  const [focusedAssetClass, setFocusedAssetClass] = useState<string | null>(null);
   const [giftForm, setGiftForm] = useState({
     date: initialState.proposedGift.date,
     amount: String(initialState.proposedGift.amount),
@@ -182,6 +188,7 @@ export default function Dashboard() {
     try {
       const stored =
         window.localStorage.getItem(STORAGE_KEY) ??
+        window.localStorage.getItem(PREVIOUS_STORAGE_KEY) ??
         window.localStorage.getItem(LEGACY_STORAGE_KEY);
       if (stored) storedState = migrateStoredState(JSON.parse(stored));
     } catch {
@@ -228,6 +235,30 @@ export default function Dashboard() {
   );
 
   const child = data.children[0];
+  const aiInputSignature = JSON.stringify({
+    assetRanking: state.assetRanking,
+    strategyRanking: state.strategyRanking,
+    horizonYears: state.horizonYears,
+    monthlyContribution: state.monthlyContribution,
+    proposedGift: state.proposedGift,
+  });
+
+  const currentAdvice = aiAdviceSignature === aiInputSignature ? aiAdvice : null;
+
+  const effectivePlan = useMemo(
+    () =>
+      currentAdvice && currentAdvice.status !== "fallback"
+        ? applyAdvisorProposal({
+            basePlan: plan,
+            proposal: currentAdvice.proposal,
+            data,
+            bankProducts: prototypeCatalog.bankProducts,
+            investmentTaxRules: prototypeCatalog.investmentTaxRules,
+            feeAssumptions: prototypeCatalog.feeAssumptions,
+          })
+        : plan,
+    [currentAdvice, data, plan],
+  );
   const giftTotal = data.giftHistory.reduce((sum, item) => sum + item.amount, 0);
   const targetProgress = Math.min(100, (plan.current.total / child.goalAmount) * 100);
 
@@ -256,11 +287,15 @@ export default function Dashboard() {
       },
     }));
     setAiAdvice(null);
+    setAiAdviceSignature(null);
     setModal(null);
   }
 
   async function requestAiAdvice() {
+    const requestSignature = aiInputSignature;
     setAiLoading(true);
+    setAiAdvice(null);
+    setAiAdviceSignature(null);
     try {
       const deterministicProposal = {
         allocations: plan.target,
@@ -313,6 +348,7 @@ export default function Dashboard() {
       });
       if (!response.ok) throw new Error("AI 분석 요청에 실패했습니다.");
       setAiAdvice(await response.json());
+      setAiAdviceSignature(requestSignature);
     } catch (error) {
       setAiAdvice({
         status: "fallback",
@@ -328,6 +364,7 @@ export default function Dashboard() {
           summary: "결정론적 규칙 엔진이 생성한 안전한 대체 결과입니다.",
         },
       });
+      setAiAdviceSignature(requestSignature);
     } finally {
       setAiLoading(false);
     }
@@ -335,9 +372,11 @@ export default function Dashboard() {
 
   function resetPrototype() {
     window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(PREVIOUS_STORAGE_KEY);
     window.localStorage.removeItem(LEGACY_STORAGE_KEY);
     setState(initialState);
     setAiAdvice(null);
+    setAiAdviceSignature(null);
     setModal(null);
   }
 
@@ -448,13 +487,6 @@ export default function Dashboard() {
           openSimulator={() => setModal("gift")}
         />
 
-        <AiAdvisorPanel
-          advice={aiAdvice}
-          loading={aiLoading}
-          run={requestAiAdvice}
-          baseline={plan.target}
-        />
-
         <nav className="section-tabs" aria-label="자산관리 결과 메뉴">
           <button
             className={state.activeTab === "portfolio" ? "active" : ""}
@@ -475,133 +507,76 @@ export default function Dashboard() {
             <section className="panel allocation-panel">
               <div className="section-heading">
                 <div>
-                  <span className="eyebrow">현재 vs 목표</span>
-                  <h2>민서에게 맞는 자산 배분</h2>
+                  <span className="eyebrow">현재 vs AI 추천</span>
+                  <h2>한눈에 보는 자산 배분</h2>
                 </div>
                 <span className="preference-pill">
                   {plan.preference.label} · {state.horizonYears}년
                 </span>
               </div>
-
-              <div className="bar-block">
-                <div className="bar-label"><span>현재</span><strong>{compactCurrency(plan.current.total)}</strong></div>
-                <div className="stacked-bar" aria-label="현재 자산 배분">
-                  {ASSET_CLASSES.map((key: string) =>
-                    plan.current.weights[key] > 0 ? (
-                      <span
-                        key={key}
-                        title={`${LABELS[key]} ${plan.current.weights[key].toFixed(1)}%`}
-                        style={{ width: `${plan.current.weights[key]}%`, background: COLORS[key] }}
-                      />
-                    ) : null,
-                  )}
-                </div>
+              <AiAdvisorStatus
+                advice={currentAdvice}
+                loading={aiLoading}
+                run={requestAiAdvice}
+              />
+              <div className="donut-comparison">
+                <PortfolioDonut
+                  title="현재 포트폴리오"
+                  weights={plan.current.weights}
+                  centerTop="현재 총자산"
+                  centerValue={compactCurrency(plan.current.total)}
+                  focusedAssetClass={focusedAssetClass}
+                />
+                <div className="donut-arrow" aria-hidden="true">→</div>
+                <PortfolioDonut
+                  title={currentAdvice && currentAdvice.status !== "fallback" ? "AI 추천 포트폴리오" : "규칙 기준 포트폴리오"}
+                  weights={effectivePlan.target}
+                  centerTop={currentAdvice && currentAdvice.status !== "fallback" ? "AI 추천" : "규칙 기준안"}
+                  centerValue="100%"
+                  focusedAssetClass={focusedAssetClass}
+                />
               </div>
-              <div className="bar-block">
-                <div className="bar-label"><span>목표</span><strong>장기 포트폴리오</strong></div>
-                <div className="stacked-bar" aria-label="목표 자산 배분">
-                  {ASSET_CLASSES.map((key: string) =>
-                    plan.target[key] > 0 ? (
-                      <span
-                        key={key}
-                        title={`${LABELS[key]} ${plan.target[key]}%`}
-                        style={{ width: `${plan.target[key]}%`, background: COLORS[key] }}
-                      />
-                    ) : null,
-                  )}
-                </div>
-              </div>
-              <div className="allocation-legend">
-                {ASSET_CLASSES.filter((key: string) => plan.target[key] > 0).map((key: string) => (
-                  <div key={key}>
+              <div className="donut-legend" aria-label="자산군 색상과 추천 비중">
+                {ASSET_CLASSES.filter((key: string) => effectivePlan.target[key] > 0).map((key: string) => (
+                  <button
+                    key={key}
+                    className={focusedAssetClass === key ? "active" : ""}
+                    onClick={() => setFocusedAssetClass((current) => current === key ? null : key)}
+                  >
                     <span className="legend-dot" style={{ background: COLORS[key] }} />
-                    <span>{LABELS[key].replace("KB국민은행 ", "").replace("KB증권 ", "")}</span>
-                    <strong>{plan.target[key]}%</strong>
-                  </div>
+                    <span>{shortAssetLabel(key)}</span>
+                    <strong>{Number(effectivePlan.target[key]).toFixed(1)}%</strong>
+                  </button>
                 ))}
               </div>
             </section>
 
-            <section className="recommendation-section">
+            <section className="panel specification-section">
               <div className="section-heading">
                 <div>
-                  <span className="eyebrow">KB 상품 우선 매칭</span>
-                  <h2>추천 포트폴리오</h2>
+                  <span className="eyebrow">현재·추천·조치를 한 행에서 비교</span>
+                  <h2>포트폴리오 명세서</h2>
                 </div>
-                <span className="count-badge">{plan.recommendations.length}개 후보</span>
+                <span className="count-badge">{effectivePlan.recommendations.length}개 KB 후보</span>
               </div>
-              <div className="recommendation-grid">
-                {plan.recommendations.map((item) => (
-                  <article className="product-card" key={item.assetClass}>
-                    <div className="card-top">
-                      <span className={providerClass(item.provider)}>{item.provider}</span>
-                      <span className="eligibility">가입·거래 가능</span>
-                    </div>
-                    <span className="asset-class">{item.label}</span>
-                    <h3>{item.name}</h3>
-                    {item.symbol ? <span className="symbol">{item.symbol}</span> : null}
-                    <div className="recommendation-amount">
-                      <div><span>추천 비중</span><strong>{item.targetWeight}%</strong></div>
-                      <div><span>목표 금액</span><strong>{compactCurrency(item.targetAmount)}</strong></div>
-                    </div>
-                    <p className="reason">{item.reason}</p>
-                    <dl className="product-meta">
-                      <div><dt>위험등급</dt><dd>{item.riskGrade}등급</dd></div>
-                      <div>
-                        <dt>금리·수익 가정</dt>
-                        <dd>
-                          {item.rateQuote?.baseRate != null
-                            ? `기본 ${item.rateQuote.baseRate}%`
-                            : item.expectedReturn
-                              ? `연 ${item.expectedReturn}% 가정`
-                              : "시장 수익률 연동"}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>우대금리 가능성</dt>
-                        <dd>
-                          {item.rateQuote
-                            ? item.rateQuote.confirmedBonus > 0
-                              ? `확인 +${item.rateQuote.confirmedBonus.toFixed(2)}%p`
-                              : "확인된 우대 없음"
-                            : "해당 없음"}
-                        </dd>
-                      </div>
-                      <div><dt>만기·권장기간</dt><dd>{item.maturity}</dd></div>
-                      <div><dt>예금자보호</dt><dd>{item.depositProtection ? "보호" : "비보호"}</dd></div>
-                      <div><dt>정보 기준일</dt><dd>{item.effectiveDate}</dd></div>
-                    </dl>
-                    <div className="warning-line"><span>!</span>{item.warning}</div>
-                    <div className="source-line">출처 · {item.sourceName}</div>
-                    <div className="cost-preview">
-                      <span>1년 세금·비용 추정</span>
-                      <strong>{compactCurrency(item.costEstimate.totalCost)}</strong>
-                      <small>{item.costEstimate.taxNote}</small>
-                    </div>
-                    <div className="card-actions">
-                      <button className="secondary-button" onClick={() => openMock(item, "detail")}>
-                        상품 자세히 보기
-                      </button>
-                      <button
-                        className="primary-button"
-                        onClick={() => openMock(item, item.kind === "bank" ? "subscribe" : "trade")}
-                      >
-                        {item.kind === "bank" ? "가입 화면으로 이동" : "M-able에서 확인"}
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-              {plan.limitations.length > 0 ? (
+              <PortfolioSpecification
+                plan={effectivePlan}
+                expandedAssetClass={expandedAssetClass}
+                setExpandedAssetClass={setExpandedAssetClass}
+                focusedAssetClass={focusedAssetClass}
+                setFocusedAssetClass={setFocusedAssetClass}
+                openMock={openMock}
+              />
+              {effectivePlan.limitations.length > 0 ? (
                 <div className="limitations">
                   <strong>KB 상품만으로 충족하지 못한 항목</strong>
-                  {plan.limitations.map((item) => <p key={item.assetClass}>{item.message}</p>)}
+                  {effectivePlan.limitations.map((item) => <p key={item.assetClass}>{item.message}</p>)}
                 </div>
               ) : null}
             </section>
           </>
         ) : (
-          <RebalanceView plan={plan} />
+          <RebalanceView plan={effectivePlan} />
         )}
 
         <section className="panel performance-panel">
@@ -648,24 +623,6 @@ export default function Dashboard() {
             {String(INVESTMENT_TAX_RULES.disclaimer)} 본 계산은{" "}
             {String(INVESTMENT_TAX_RULES.demo_label)}입니다.
           </p>
-        </section>
-
-        <section className={`approval-panel ${state.approved ? "approved" : ""}`}>
-          <div>
-            <span className="eyebrow">{state.approved ? "승인 기록 완료" : "보호자 최종 확인"}</span>
-            <h2>{state.approved ? "제안이 승인되었습니다" : "이 포트폴리오 제안을 확인했나요?"}</h2>
-            <p>
-              {state.approved
-                ? "실제 가입이나 주문은 실행되지 않았습니다. 각 KB 채널에서 최종 조건을 확인해 주세요."
-                : "승인은 프로토타입 상태만 저장하며 실제 금융거래를 실행하지 않습니다."}
-            </p>
-          </div>
-          <button
-            className="approval-button"
-            onClick={() => setState((current) => ({ ...current, approved: !current.approved }))}
-          >
-            {state.approved ? "승인 취소" : "보호자 승인"}
-          </button>
         </section>
 
         <footer>
@@ -800,88 +757,239 @@ function GiftTaxSummary({
   );
 }
 
-function AiAdvisorPanel({
+function shortAssetLabel(assetClass: string) {
+  return LABELS[assetClass].replace("KB국민은행 ", "").replace("KB증권 ", "");
+}
+
+function donutGradient(weights: Record<string, number>) {
+  let start = 0;
+  const stops = ASSET_CLASSES.flatMap((key: string) => {
+    const weight = Math.max(0, Number(weights[key] ?? 0));
+    if (weight === 0) return [];
+    const end = start + weight;
+    const stop = `${COLORS[key]} ${start.toFixed(2)}% ${end.toFixed(2)}%`;
+    start = end;
+    return stop;
+  });
+  return `conic-gradient(${stops.join(", ")})`;
+}
+
+function PortfolioDonut({
+  title,
+  weights,
+  centerTop,
+  centerValue,
+  focusedAssetClass,
+}: {
+  title: string;
+  weights: Record<string, number>;
+  centerTop: string;
+  centerValue: string;
+  focusedAssetClass: string | null;
+}) {
+  const description = ASSET_CLASSES.filter((key: string) => Number(weights[key]) > 0)
+    .map((key: string) => `${shortAssetLabel(key)} ${Number(weights[key]).toFixed(1)}%`)
+    .join(", ");
+  const focusedWeight = focusedAssetClass ? Number(weights[focusedAssetClass] ?? 0) : null;
+  return (
+    <figure className="portfolio-donut-card">
+      <figcaption>{title}</figcaption>
+      <div
+        className={`portfolio-donut ${focusedAssetClass ? "focused" : ""}`}
+        style={{ "--donut-gradient": donutGradient(weights) } as CSSProperties}
+        role="img"
+        aria-label={`${title}: ${description}`}
+      >
+        <div className="donut-center">
+          <span>{focusedAssetClass ? shortAssetLabel(focusedAssetClass) : centerTop}</span>
+          <strong>{focusedWeight != null ? `${focusedWeight.toFixed(1)}%` : centerValue}</strong>
+        </div>
+      </div>
+    </figure>
+  );
+}
+
+function AiAdvisorStatus({
   advice,
   loading,
   run,
-  baseline,
 }: {
   advice: AiAdvice | null;
   loading: boolean;
   run: () => void;
-  baseline: Record<string, number>;
 }) {
-  const allocation = advice?.proposal.allocations ?? baseline;
+  const providerLabel =
+    advice?.provider === "gemini"
+      ? "Gemini"
+      : advice?.provider === "ollama"
+        ? "Ollama"
+        : "규칙 엔진";
   const statusLabel =
     advice?.status === "validated"
-      ? "AI 검증 통과"
+      ? `${providerLabel} AI 제안 · 정책 검증 통과`
       : advice?.status === "adjusted"
-        ? "정책 보정 완료"
+        ? "AI 원안 · 정책 엔진 보정"
         : advice?.status === "fallback"
-          ? "규칙 기반 대체"
-          : "분석 대기";
+          ? "AI 연결 실패 · 규칙 기반 대체 결과"
+          : "분석 전 · 규칙 기준안";
   return (
-    <section className="panel ai-advisor-panel">
-      <div className="ai-heading">
+    <div className={`advisor-status-card ${advice?.status ?? "idle"}`}>
+      <div className="advisor-status-main">
         <div>
-          <span className="eyebrow">PortfolioAdvisorAgent</span>
-          <h2>AI가 구성하고, 금융 규칙이 검증합니다</h2>
+          <span className="advisor-kicker">PortfolioAdvisorAgent</span>
+          <strong>{statusLabel}</strong>
           <p>
-            AI는 비중과 KB 상품을 제안합니다. 상품 적합성, 증여세, 세금과 수수료 계산은
-            AI가 바꿀 수 없는 규칙 엔진의 결과입니다.
+            {advice?.proposal.summary ??
+              "선호 순위와 투자기간으로 만든 기준안입니다. AI 분석 후 검증된 제안이 이 화면 전체에 반영됩니다."}
           </p>
         </div>
-        <div className="ai-actions">
-          <span className={`ai-status ${advice?.status ?? "idle"}`}>{statusLabel}</span>
-          <button className="ai-run-button" onClick={run} disabled={loading}>
-            {loading ? "Ollama 분석 중…" : advice ? "AI 다시 분석" : "AI 포트폴리오 분석"}
-          </button>
-        </div>
+        <button className="ai-run-button" onClick={run} disabled={loading}>
+          {loading ? "AI 분석 중…" : advice ? "AI 다시 분석" : "AI 포트폴리오 분석"}
+        </button>
       </div>
-      <div className="ai-body">
-        <div className="ai-allocation">
-          <span>현재 표시 제안</span>
-          <div>
-            {ASSET_CLASSES.filter((key: string) => Number(allocation[key]) > 0).map((key: string) => (
-              <p key={key}>
-                <span className="legend-dot" style={{ background: COLORS[key] }} />
-                <span>{LABELS[key].replace("KB국민은행 ", "").replace("KB증권 ", "")}</span>
-                <strong>{Number(allocation[key]).toFixed(1)}%</strong>
-              </p>
-            ))}
-          </div>
-        </div>
-        <div className="ai-audit">
-          <span>에이전트 실행 기록</span>
-          <strong>{advice?.message ?? "분석 버튼을 누르면 로컬 Ollama를 호출합니다."}</strong>
-          <p>
-            실행 환경 ·{" "}
-            {advice
-              ? advice.provider === "ollama"
-                ? `Ollama / ${advice.model}`
-                : "외부 LLM 미설정 / 결정론적 대체"
-              : "로컬 Ollama 우선"}
-          </p>
-          {advice?.proposal.summary ? <p>최종 설명 · {advice.proposal.summary}</p> : null}
-          {advice?.originalProposal?.summary && advice.status === "adjusted" ? (
-            <p>AI 원안 · {advice.originalProposal.summary}</p>
-          ) : null}
-          {advice?.adjustments?.length ? (
-            <div className="policy-adjustments">
-              <span>규칙 엔진 보정</span>
-              {advice.adjustments.map((item) => <small key={item}>· {item}</small>)}
-            </div>
-          ) : null}
-        </div>
-        <div className="agent-tools">
-          <span>읽기 전용 도구</span>
-          <small>getPolicyFacts</small>
-          <small>listEligibleKbProducts</small>
-          <small>estimateNetCost</small>
-          <small>simulateAllocation</small>
-        </div>
+      <div className="advisor-facts">
+        <span>{advice?.model ? `사용 모델 · ${providerLabel} / ${advice.model}` : "금융 계산 · 규칙 엔진"}</span>
+        {(advice?.consideredFactors?.length
+          ? advice.consideredFactors
+          : ["선호 순위", "투자기간", "KB 상품 적합성", "세금·수수료"]
+        ).slice(0, 4).map((item) => <small key={item}>{item}</small>)}
       </div>
-    </section>
+      {advice?.adjustments?.length ? (
+        <details className="advisor-adjustments">
+          <summary>정책 엔진 보정 {advice.adjustments.length}건 보기</summary>
+          {advice.adjustments.map((item) => <p key={item}>· {item}</p>)}
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
+function displayAction(currentWeight: number, targetWeight: number, advisorAction?: string) {
+  if (advisorAction === "추가입금") return "추가";
+  if (advisorAction === "매도검토") return "축소 검토";
+  if (advisorAction === "만기재배분") return "만기 재배분";
+  if (advisorAction === "유지") return "유지";
+  const gap = targetWeight - currentWeight;
+  if (gap > 1) return "추가";
+  if (gap < -1) return "축소 검토";
+  return "유지";
+}
+
+function PortfolioSpecification({
+  plan,
+  expandedAssetClass,
+  setExpandedAssetClass,
+  focusedAssetClass,
+  setFocusedAssetClass,
+  openMock,
+}: {
+  plan: ReturnType<typeof generatePlan>;
+  expandedAssetClass: string | null;
+  setExpandedAssetClass: React.Dispatch<React.SetStateAction<string | null>>;
+  focusedAssetClass: string | null;
+  setFocusedAssetClass: React.Dispatch<React.SetStateAction<string | null>>;
+  openMock: (item: Record<string, unknown> | null, action: "detail" | "subscribe" | "trade") => void;
+}) {
+  const itemByClass = new Map(plan.recommendations.map((item) => [item.assetClass, item]));
+  const rows = ASSET_CLASSES.filter(
+    (key: string) => Number(plan.current.weights[key]) > 0 || Number(plan.target[key]) > 0,
+  );
+  return (
+    <div className="specification-table-wrap">
+      <table className="portfolio-specification">
+        <thead>
+          <tr>
+            <th>자산군</th>
+            <th>현재</th>
+            <th>추천</th>
+            <th>차이</th>
+            <th>KB 상품</th>
+            <th>조치</th>
+            <th>위험</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((assetClass: string) => {
+            const item = itemByClass.get(assetClass);
+            const currentWeight = Number(plan.current.weights[assetClass] ?? 0);
+            const targetWeight = Number(plan.target[assetClass] ?? 0);
+            const currentAmount = Number(plan.current.amounts[assetClass] ?? 0);
+            const targetAmount = Math.round((plan.current.total * targetWeight) / 100);
+            const deltaWeight = targetWeight - currentWeight;
+            const deltaAmount = targetAmount - currentAmount;
+            const advisorAction = item && "advisorAction" in item ? String(item.advisorAction) : undefined;
+            const action = displayAction(currentWeight, targetWeight, advisorAction);
+            const expanded = expandedAssetClass === assetClass;
+            return (
+              <Fragment key={assetClass}>
+                <tr
+                  className={`${focusedAssetClass === assetClass ? "focused" : ""} ${expanded ? "expanded" : ""}`}
+                  onMouseEnter={() => setFocusedAssetClass(assetClass)}
+                  onMouseLeave={() => setFocusedAssetClass(null)}
+                >
+                  <td data-label="자산군">
+                    <button
+                      className="asset-toggle"
+                      onClick={() => setExpandedAssetClass(expanded ? null : assetClass)}
+                      aria-expanded={expanded}
+                    >
+                      <span className="legend-dot" style={{ background: COLORS[assetClass] }} />
+                      <span>{shortAssetLabel(assetClass)}</span>
+                      <b aria-hidden="true">{expanded ? "−" : "+"}</b>
+                    </button>
+                  </td>
+                  <td data-label="현재"><strong>{currentWeight.toFixed(1)}%</strong><small>{compactCurrency(currentAmount)}</small></td>
+                  <td data-label="추천"><strong>{targetWeight.toFixed(1)}%</strong><small>{compactCurrency(targetAmount)}</small></td>
+                  <td data-label="차이" className={deltaWeight > 1 ? "positive" : deltaWeight < -1 ? "negative" : "neutral"}>
+                    <strong>{deltaWeight > 0 ? "+" : ""}{deltaWeight.toFixed(1)}%p</strong>
+                    <small>{deltaAmount > 0 ? "+" : ""}{compactCurrency(deltaAmount)}</small>
+                  </td>
+                  <td data-label="KB 상품">
+                    {item ? <><span className={providerClass(item.provider)}>{item.provider}</span><strong className="product-name-cell">{item.name}</strong></> : <span>적합 후보 없음</span>}
+                  </td>
+                  <td data-label="조치"><span className={`action-badge action-${action.replace(/\s/g, "-")}`}>{action}</span></td>
+                  <td data-label="위험">{item ? `${item.riskGrade}등급` : "-"}</td>
+                </tr>
+                {expanded ? (
+                  <tr className="specification-detail-row">
+                    <td colSpan={7}>
+                      {item ? (
+                        <div className="specification-detail">
+                          <div className="detail-reason">
+                            <span>추천 근거</span>
+                            <strong>{item.reason}</strong>
+                            <p>{plan.preference.label} · 투자기간 {plan.policyFacts.horizonYears}년 · {plan.policyFacts.safetyGuardrail}</p>
+                          </div>
+                          <dl>
+                            <div><dt>금리·수익 가정</dt><dd>{item.rateQuote?.baseRate != null ? `기본 ${item.rateQuote.baseRate}%` : item.expectedReturn ? `연 ${item.expectedReturn}% 가정` : "시장 수익률 연동"}</dd></div>
+                            <div><dt>우대금리 판정</dt><dd>{item.rateQuote ? item.rateQuote.confirmedBonus > 0 ? `충족 확인 +${item.rateQuote.confirmedBonus.toFixed(2)}%p` : "확인된 우대 없음" : "해당 없음"}</dd></div>
+                            <div><dt>1년 세금·비용 추정</dt><dd>{compactCurrency(item.costEstimate.totalCost)}</dd></div>
+                            <div><dt>만기·권장기간</dt><dd>{item.maturity}</dd></div>
+                            <div><dt>예금자보호</dt><dd>{item.depositProtection ? "보호" : "비보호"}</dd></div>
+                            <div><dt>정보 기준일</dt><dd>{item.effectiveDate}</dd></div>
+                          </dl>
+                          <div className="detail-notes">
+                            <p><b>세금·비용:</b> {item.costEstimate.taxNote}</p>
+                            <p><b>주의사항:</b> {item.warning}</p>
+                            <p><b>출처:</b> {item.sourceName}</p>
+                          </div>
+                          <div className="card-actions">
+                            <button className="secondary-button" onClick={() => openMock(item, "detail")}>상품 자세히 보기</button>
+                            <button className="primary-button" onClick={() => openMock(item, item.kind === "bank" ? "subscribe" : "trade")}>
+                              {item.kind === "bank" ? "가입 화면으로 이동" : "M-able에서 확인"}
+                            </button>
+                          </div>
+                        </div>
+                      ) : <p>현재 조건에서 검증된 KB 상품 후보가 없습니다.</p>}
+                    </td>
+                  </tr>
+                ) : null}
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
