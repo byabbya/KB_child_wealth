@@ -1,4 +1,5 @@
 {
+  "scenarioLabel": "고정 샘플 시나리오",
   "demoLabel": "프로토타입용 샘플 데이터",
   "asOf": "2026-07-30",
   "children": [
@@ -60,8 +61,7 @@
       "provider": "KB증권",
       "accountName": "자녀 종합위탁",
       "cashBalance": 1200000,
-      "pendingDividends": 120000,
-      "consent": true
+      "pendingDividends": 120000
     }
   ],
   "securitiesHoldings": [
@@ -95,18 +95,30 @@
       "giftId": "gift-001",
       "date": "2019-03-02",
       "amount": 5000000,
+      "donorId": "parent-father",
+      "donorGroupId": "parent-couple",
+      "donorRelationship": "부",
+      "priorTaxPaid": 0,
       "memo": "초등학교 입학 준비"
     },
     {
       "giftId": "gift-002",
       "date": "2022-05-18",
       "amount": 6000000,
+      "donorId": "parent-mother",
+      "donorGroupId": "parent-couple",
+      "donorRelationship": "모",
+      "priorTaxPaid": 0,
       "memo": "생일 증여"
     },
     {
       "giftId": "gift-003",
       "date": "2025-01-15",
       "amount": 7000000,
+      "donorId": "parent-father",
+      "donorGroupId": "parent-couple",
+      "donorRelationship": "부",
+      "priorTaxPaid": 0,
       "memo": "장기 저축 재원"
     }
   ],

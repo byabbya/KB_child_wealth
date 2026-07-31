@@ -66,6 +66,34 @@
       "official": true
     },
     {
+      "id": "source:gift-tax-law-deduction",
+      "name": "국가법령정보센터 상속세 및 증여세법 제53조",
+      "provider": "국가법령정보센터",
+      "url": "https://www.law.go.kr/LSW/lsLinkCommonInfo.do?lsJoLnkSeq=1017648003",
+      "official": true
+    },
+    {
+      "id": "source:gift-tax-law-aggregation",
+      "name": "국가법령정보센터 상속세 및 증여세법 제47조",
+      "provider": "국가법령정보센터",
+      "url": "https://law.go.kr/lsLinkCommonInfo.do?lsJoLnkSeq=1023532195",
+      "official": true
+    },
+    {
+      "id": "source:nts-gift-tax-filing",
+      "name": "국세청 증여세 신고납부기한 안내",
+      "provider": "국세청",
+      "url": "https://www.nts.go.kr/nts/cm/cntnts/cntntsView.do?cntntsId=7730&mi=2323",
+      "official": true
+    },
+    {
+      "id": "source:transaction-tax-law",
+      "name": "국가법령정보센터 증권거래세법 시행령",
+      "provider": "국가법령정보센터",
+      "url": "https://www.law.go.kr/LSW/lsInfoP.do?efYd=20260101&lsiSeq=282431",
+      "official": true
+    },
+    {
       "id": "source:prototype-policy",
       "name": "프로토타입 필터 검증 데이터",
       "provider": "프로토타입",

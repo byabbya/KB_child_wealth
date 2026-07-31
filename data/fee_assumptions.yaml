@@ -1,0 +1,30 @@
+{
+  "demo_label": "프로토타입 비용 가정",
+  "effective_date": "2026-07-30",
+  "last_verified_at": "2026-07-30",
+  "schedules": {
+    "kb_bank": {
+      "buy_commission_rate": 0,
+      "sell_commission_rate": 0,
+      "fx_spread_rate": 0,
+      "note": "상품별 중도해지이율과 펀드 보수는 별도 적용"
+    },
+    "kbsec_domestic": {
+      "buy_commission_rate": 0.001,
+      "sell_commission_rate": 0.001,
+      "fx_spread_rate": 0,
+      "note": "실제 수수료는 계좌와 거래 채널에 따라 달라지는 프로토타입 가정"
+    },
+    "kbsec_overseas": {
+      "buy_commission_rate": 0.0025,
+      "sell_commission_rate": 0.0025,
+      "fx_spread_rate": 0.001,
+      "note": "실제 해외주식 수수료와 환전 스프레드는 시점과 우대조건에 따라 달라짐"
+    }
+  },
+  "source_references": [
+    "source:kbsec-mable",
+    "source:kbsec-global"
+  ],
+  "disclaimer": "법정세율이 아닌 비교 목적의 프로토타입 비용 가정입니다."
+}

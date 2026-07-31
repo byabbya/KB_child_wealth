@@ -1,0 +1,26 @@
+{
+  "demo_label": "프로토타입용 증여세 추정 규칙",
+  "effective_date": "2026-07-30",
+  "last_verified_at": "2026-07-30",
+  "lookback_years": 10,
+  "deductions": {
+    "minor_direct_ascendant": 20000000,
+    "adult_direct_ascendant": 50000000
+  },
+  "same_donor_aggregation_threshold": 10000000,
+  "timely_filing_credit_rate": 0.03,
+  "filing_due_months_after_gift_month": 3,
+  "brackets": [
+    { "up_to": 100000000, "rate": 0.10, "quick_deduction": 0 },
+    { "up_to": 500000000, "rate": 0.20, "quick_deduction": 10000000 },
+    { "up_to": 1000000000, "rate": 0.30, "quick_deduction": 60000000 },
+    { "up_to": 3000000000, "rate": 0.40, "quick_deduction": 160000000 },
+    { "up_to": null, "rate": 0.50, "quick_deduction": 460000000 }
+  ],
+  "source_references": [
+    "source:gift-tax-law-deduction",
+    "source:gift-tax-law-aggregation",
+    "source:nts-gift-tax-filing"
+  ],
+  "disclaimer": "직계존속의 일반적인 현금 증여를 단순화한 프로토타입 추정치입니다. 실제 신고 전 세무 전문가 확인이 필요합니다."
+}

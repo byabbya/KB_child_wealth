@@ -1,0 +1,31 @@
+{
+  "demo_label": "프로토타입용 투자세금 추정 규칙",
+  "effective_date": "2026-07-30",
+  "last_verified_at": "2026-07-30",
+  "interest_income_tax_rate": 0.154,
+  "fund_distribution_tax_rate": 0.154,
+  "domestic_overseas_asset_etf_income_tax_rate": 0.154,
+  "overseas_capital_gains_tax_rate": 0.22,
+  "overseas_capital_gains_basic_deduction_krw": 2500000,
+  "domestic_stock_small_shareholder_capital_gains_tax_rate": 0,
+  "transaction_tax": {
+    "KRX_KOSPI": {
+      "securities_transaction_tax_rate": 0.0005,
+      "rural_special_tax_rate": 0.0015
+    },
+    "KRX_KOSDAQ": {
+      "securities_transaction_tax_rate": 0.002,
+      "rural_special_tax_rate": 0
+    },
+    "ETF": {
+      "securities_transaction_tax_rate": 0,
+      "rural_special_tax_rate": 0
+    }
+  },
+  "source_references": [
+    "source:nts-interest",
+    "source:kbsec-overseas-tax",
+    "source:transaction-tax-law"
+  ],
+  "disclaimer": "대주주·장외거래·금융소득 종합과세와 상품별 예외는 자동 계산하지 않습니다."
+}

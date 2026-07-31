@@ -1,0 +1,26 @@
+{
+  "demo_label": "프로토타입용 KB 자녀 상품 정책",
+  "effective_date": "2026-07-30",
+  "last_verified_at": "2026-07-30",
+  "rules": {
+    "kb_young_youth_account": {
+      "product_id": "KB-YOUNG-ACCOUNT",
+      "maximum_age": 18,
+      "accounts_per_person": 1,
+      "auto_conversion_age": 19,
+      "fee_waiver_conditional": true,
+      "source_reference": "source:kb-youth-account"
+    },
+    "kb_young_youth_savings": {
+      "product_id": "KB-YOUNG-SAVINGS",
+      "maximum_age": 18,
+      "accounts_per_person": 1,
+      "contract_months": 12,
+      "minimum_initial_amount": 10000,
+      "maximum_monthly_amount": 3000000,
+      "annual_auto_renewal_available": true,
+      "source_reference": "source:kb-youth-savings"
+    }
+  },
+  "disclaimer": "가입 가능 여부와 최신 조건은 실제 가입 시점의 상품설명서와 약관을 확인해야 합니다."
+}

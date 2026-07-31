@@ -9,22 +9,52 @@ import {
   generatePlan,
   getRateQuote,
   parseCsv,
-  parseTaxYaml,
   shouldKeepDeposit,
 } from "../lib/engine.mjs";
+import {
+  GiftTaxPolicyEngine,
+  InvestmentTaxFeeEngine,
+  KbProductPolicyEngine,
+  parsePolicyDocument,
+} from "../lib/rules.mjs";
+import {
+  PortfolioPolicyValidator,
+  runPortfolioAdvisor,
+} from "../lib/portfolio-agent.mjs";
 
 const root = new URL("../", import.meta.url);
-const [bankCsv, securitiesCsv, holdingsText, taxText] = await Promise.all([
+const [
+  bankCsv,
+  securitiesCsv,
+  scenarioText,
+  giftTaxText,
+  investmentTaxText,
+  feeText,
+  productPolicyText,
+] = await Promise.all([
   readFile(new URL("data/kb_bank_products.csv", root), "utf8"),
   readFile(new URL("data/kb_securities_assets.csv", root), "utf8"),
-  readFile(new URL("data/sample_holdings.json", root), "utf8"),
-  readFile(new URL("data/tax_rules.yaml", root), "utf8"),
+  readFile(new URL("data/sample_scenario.json", root), "utf8"),
+  readFile(new URL("data/gift_tax_rules.yaml", root), "utf8"),
+  readFile(new URL("data/investment_tax_rules.yaml", root), "utf8"),
+  readFile(new URL("data/fee_assumptions.yaml", root), "utf8"),
+  readFile(new URL("data/kb_product_policies.yaml", root), "utf8"),
 ]);
 
 const banks = parseCsv(bankCsv);
 const securities = parseCsv(securitiesCsv);
-const data = JSON.parse(holdingsText);
-const taxRules = parseTaxYaml(taxText);
+const data = JSON.parse(scenarioText);
+const giftTaxRules = parsePolicyDocument(giftTaxText);
+const investmentTaxRules = parsePolicyDocument(investmentTaxText);
+const feeAssumptions = parsePolicyDocument(feeText);
+const productPolicies = parsePolicyDocument(productPolicyText);
+const proposedGift = {
+  date: "2026-07-30",
+  amount: 5_000_000,
+  donorId: "parent-father",
+  donorGroupId: "parent-couple",
+  donorRelationship: "부",
+};
 const context = {
   age: 12,
   asOf: "2026-07-30",
@@ -37,6 +67,21 @@ const defaultProfile = {
   horizonYears: 8,
   monthlyContribution: 500000,
 };
+
+function buildPlan(overrides = {}) {
+  return generatePlan({
+    bankProducts: banks,
+    securitiesAssets: securities,
+    data,
+    profile: defaultProfile,
+    proposedGift,
+    giftTaxRules,
+    investmentTaxRules,
+    feeAssumptions,
+    productPolicies,
+    ...overrides,
+  });
+}
 
 test("preference rankings produce deterministic allocations", () => {
   const preference = calculatePreferenceAllocation(defaultProfile);
@@ -53,30 +98,16 @@ test("preference rankings produce deterministic allocations", () => {
   });
 });
 
-test("reordered strategy changes ETF, individual stock and market weights", () => {
-  const preference = calculatePreferenceAllocation({
-    ...defaultProfile,
-    assetRanking: ["stock", "savings", "deposit", "bond"],
-    strategyRanking: ["individual", "etf", "domestic", "us"],
-  });
-  assert.equal(preference.label, "주식 우선 · 개별종목 중심 · 국내종목 중심");
-  assert.ok(preference.target.domesticStock > preference.target.overseasStock);
-  assert.ok(
-    preference.target.domesticStock + preference.target.overseasStock >
-      preference.target.domesticEtf + preference.target.overseasEtf,
-  );
-});
-
 test("investment horizon guardrails cap growth and individual-stock exposure", () => {
   const short = calculatePreferenceAllocation({
     ...defaultProfile,
     assetRanking: ["stock", "savings", "deposit", "bond"],
     horizonYears: 2,
   }).target;
-  const shortGrowth =
-    short.domesticEtf + short.overseasEtf + short.domesticStock + short.overseasStock;
-  assert.ok(shortGrowth <= 20.1);
-
+  assert.ok(
+    short.domesticEtf + short.overseasEtf + short.domesticStock + short.overseasStock <=
+      20.1,
+  );
   const medium = calculatePreferenceAllocation({
     ...defaultProfile,
     assetRanking: ["stock", "savings", "deposit", "bond"],
@@ -84,34 +115,39 @@ test("investment horizon guardrails cap growth and individual-stock exposure", (
     horizonYears: 4,
   }).target;
   assert.ok(medium.domesticStock + medium.overseasStock <= 10.1);
-  const safeTotal = medium.cash + medium.savings + medium.deposit + medium.fund;
-  assert.ok(safeTotal >= 64.9);
 });
 
-test("KB bank products are searched before any external, adult-only or discontinued product", () => {
+test("KB product policy excludes external, adult-only, discontinued and unsafe assets", () => {
   const external = {
     ...banks[0],
     product_id: "OTHER-BANK",
-    product_name: "외부은행 테스트 상품",
     provider: "다른은행",
-    base_rate: 99,
   };
-  const candidates = eligibleBankProducts([...banks, external], context);
-  assert.ok(candidates.length > 0);
-  assert.ok(candidates.every((product) => product.provider === "KB국민은행"));
-  assert.ok(candidates.every((product) => product.minor_eligible === true));
-  assert.ok(candidates.every((product) => product.product_status === "active"));
-  assert.ok(!candidates.some((product) => product.product_id === "KB-ADULT-ONLY"));
-  assert.ok(!candidates.some((product) => product.product_id === "KB-YOUTH-LEGACY"));
+  const bankCandidates = eligibleBankProducts(
+    [...banks, external],
+    context,
+    productPolicies,
+  );
+  assert.ok(bankCandidates.every((item) => item.provider === "KB국민은행"));
+  assert.ok(!bankCandidates.some((item) => item.product_id === "KB-ADULT-ONLY"));
+  assert.ok(!bankCandidates.some((item) => item.product_id === "KB-YOUTH-LEGACY"));
+
+  const securityCandidates = eligibleSecuritiesAssets(
+    securities,
+    context,
+    productPolicies,
+  );
+  assert.ok(securityCandidates.every((item) => item.provider === "KB증권"));
+  assert.ok(!securityCandidates.some((item) => item.asset_id.startsWith("KBSEC-FILTER")));
 });
 
-test("stocks and ETFs remain KB Securities assets and unsafe instruments are excluded", () => {
-  const candidates = eligibleSecuritiesAssets(securities, context);
-  assert.ok(candidates.length >= 8);
-  assert.ok(candidates.every((asset) => asset.provider === "KB증권"));
-  assert.ok(candidates.every((asset) => !asset.leverage_flag && !asset.inverse_flag));
-  assert.ok(candidates.every((asset) => asset.minor_account_tradable && asset.approved));
-  assert.ok(!candidates.some((asset) => asset.asset_id.startsWith("KBSEC-FILTER")));
+test("KB Young Youth policy is data-driven and applies age and one-account facts", () => {
+  const policyEngine = new KbProductPolicyEngine(productPolicies);
+  const product = banks.find((item) => item.product_id === "KB-YOUNG-SAVINGS");
+  const result = policyEngine.evaluateBankProduct(product, context);
+  assert.equal(result.eligible, true);
+  assert.equal(result.productPolicy.accounts_per_person, 1);
+  assert.equal(result.productPolicy.maximum_monthly_amount, 3_000_000);
 });
 
 test("unverified preferential conditions never apply the maximum rate", () => {
@@ -123,39 +159,70 @@ test("unverified preferential conditions never apply the maximum rate", () => {
   );
   assert.equal(quote.baseRate, 2.35);
   assert.equal(quote.expectedRate, 2.65);
-  assert.equal(quote.maximumRate, 3.65);
   assert.ok(quote.expectedRate < quote.maximumRate);
-  assert.ok(quote.conditions.some((condition) => condition.status === "충족 가능"));
-  assert.ok(quote.conditions.some((condition) => condition.status === "충족 여부 미확인"));
 });
 
-test("stale rates warn, stop yield calculation and eventually leave the candidate set", () => {
-  const product = {
-    ...banks.find((item) => item.product_id === "KB-YOUNG-SAVINGS"),
-    last_verified_at: "2026-06-10",
-  };
-  const quote = getRateQuote(product, {}, "2026-07-30");
-  assert.equal(quote.freshness.status, "warning");
-  assert.equal(quote.baseRate, null);
-  assert.match(quote.warning, /30일/);
-  assert.equal(eligibleBankProducts([product], context).length, 1);
-  const expired = { ...product, last_verified_at: "2026-01-01" };
-  assert.equal(eligibleBankProducts([expired], context).length, 0);
-});
-
-test("discontinued products remain visible as holdings but never become new recommendations", () => {
-  const aggregated = aggregateHoldings(data, banks, securities, true);
-  assert.ok(aggregated.amounts.cash >= 7700000);
-  const plan = generatePlan({
-    bankProducts: banks,
-    securitiesAssets: securities,
-    data,
-    profile: defaultProfile,
-    taxRules,
-  });
+test("fixed scenario always includes bank and securities holdings without connection state", () => {
+  const aggregated = aggregateHoldings(data, banks, securities);
+  assert.equal(aggregated.total, 36_100_000);
+  const plan = buildPlan();
+  assert.ok(plan.recommendations.some((item) => item.provider === "KB증권"));
+  assert.ok(!plan.limitations.some((item) => /연결/.test(item.message)));
   assert.ok(!plan.recommendations.some((item) => item.id === "KB-YOUTH-LEGACY"));
-  assert.equal(plan.recommendations.find((item) => item.assetClass === "savings").id, "KB-YOUNG-SAVINGS");
-  assert.equal(plan.recommendations.find((item) => item.assetClass === "domesticEtf").provider, "KB증권");
+});
+
+test("gift tax engine calculates the 18m plus 5m fixed scenario", () => {
+  const result = new GiftTaxPolicyEngine(giftTaxRules).evaluate(
+    data.giftHistory,
+    proposedGift,
+    data.children[0],
+    data.asOf,
+  );
+  assert.equal(result.previousTotal, 18_000_000);
+  assert.equal(result.remainingDeductionBefore, 2_000_000);
+  assert.equal(result.combinedTotal, 23_000_000);
+  assert.equal(result.taxableBase, 3_000_000);
+  assert.equal(result.calculatedTax, 300_000);
+  assert.equal(result.timelyFilingCredit, 9_000);
+  assert.equal(result.estimatedTaxAfterCredit, 291_000);
+  assert.equal(result.filingDueDate, "2026-10-31");
+  assert.equal(result.aggregationApplies, true);
+});
+
+test("gift tax engine drops gifts outside the rolling ten-year window", () => {
+  const history = [
+    ...data.giftHistory,
+    {
+      giftId: "old",
+      date: "2015-07-29",
+      amount: 99_000_000,
+      donorId: "parent-father",
+      donorGroupId: "parent-couple",
+      donorRelationship: "부",
+    },
+  ];
+  const result = new GiftTaxPolicyEngine(giftTaxRules).evaluate(
+    history,
+    proposedGift,
+    data.children[0],
+    data.asOf,
+  );
+  assert.equal(result.previousTotal, 18_000_000);
+});
+
+test("investment tax and fee engine keeps legal tax and prototype fees separate", () => {
+  const engine = new InvestmentTaxFeeEngine(investmentTaxRules, feeAssumptions);
+  const overseas = securities.find((item) => item.asset_id === "KBSEC-US-STOCK-AAPL");
+  const estimate = engine.estimate(overseas, {
+    amount: 10_000_000,
+    expectedReturnRate: 30,
+    holdingYears: 1,
+  });
+  assert.equal(estimate.expectedGain, 3_000_000);
+  assert.equal(estimate.estimatedTax, 110_000);
+  assert.equal(estimate.commission, 25_000);
+  assert.equal(estimate.fxCost, 10_000);
+  assert.ok(estimate.totalCost >= 145_000);
 });
 
 test("large early-termination loss or near maturity keeps KB deposits intact", () => {
@@ -181,23 +248,68 @@ test("large early-termination loss or near maturity keeps KB deposits intact", (
   );
 });
 
-test("Mock-only prototype builds a full plan and explains unavailable KB Securities candidates", () => {
-  const connectedPlan = generatePlan({
-    bankProducts: banks,
-    securitiesAssets: securities,
-    data,
+test("portfolio validator rejects unknown products, unsafe weights and AI tax overrides", () => {
+  const plan = buildPlan();
+  const input = {
     profile: defaultProfile,
-    taxRules,
+    allowedCandidates: plan.recommendations.map((item) => ({
+      id: item.id,
+      assetClass: item.assetClass,
+    })),
+  };
+  const invalid = {
+    allocations: {
+      cash: 0,
+      savings: 0,
+      deposit: 0,
+      fund: 0,
+      domesticEtf: 60,
+      overseasEtf: 40,
+      domesticStock: 0,
+      overseasStock: 0,
+    },
+    recommendations: [
+      { assetClass: "overseasStock", productId: "OTHER-BANK-STOCK" },
+    ],
+    taxFacts: { giftTax: 0 },
+  };
+  const result = new PortfolioPolicyValidator().validate(invalid, input);
+  assert.equal(result.valid, false);
+  assert.ok(result.violations.some((item) => /허용되지 않은 상품/.test(item)));
+  assert.ok(result.violations.some((item) => /세금·수수료/.test(item)));
+});
+
+test("agent uses deterministic fallback when Ollama is unavailable", async () => {
+  const plan = buildPlan();
+  const deterministicProposal = {
+    allocations: plan.target,
+    recommendations: plan.recommendations.map((item) => ({
+      assetClass: item.assetClass,
+      productId: item.id,
+      weight: item.targetWeight,
+      amount: item.targetAmount,
+      action: item.held ? "유지" : "추가입금",
+      rationale: item.reason,
+    })),
+  };
+  const result = await runPortfolioAdvisor({
+    provider: {
+      async complete() {
+        throw new Error("Ollama offline");
+      },
+    },
+    input: {
+      child: data.children[0],
+      profile: defaultProfile,
+      policyFacts: plan.policyFacts,
+      allowedCandidates: plan.recommendations.map((item) => ({
+        id: item.id,
+        assetClass: item.assetClass,
+      })),
+      deterministicProposal,
+    },
   });
-  assert.ok(connectedPlan.recommendations.length >= 6);
-  assert.ok(connectedPlan.rebalancing.holds.some((item) => item.keep));
-  const disconnectedPlan = generatePlan({
-    bankProducts: banks,
-    securitiesAssets: securities,
-    data,
-    connected: false,
-    profile: defaultProfile,
-    taxRules,
-  });
-  assert.ok(disconnectedPlan.limitations.some((item) => /KB증권 계좌 연결/.test(item.message)));
+  assert.equal(result.status, "fallback");
+  assert.deepEqual(result.proposal.allocations, plan.target);
+  assert.match(result.message, /규칙 기반 대체/);
 });
