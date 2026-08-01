@@ -29,6 +29,7 @@ const INVESTMENT_TAX_RULES = prototypeCatalog.investmentTaxRules as Record<strin
 
 type AssetPreference = "savings" | "deposit" | "stock" | "bond";
 type StrategyPreference = "etf" | "individual" | "us" | "domestic";
+type ProductFilter = "all" | "bank" | "etf" | "fund" | "stock";
 
 const ASSET_PREFERENCE_LABELS: Record<AssetPreference, string> = {
   savings: "적금",
@@ -176,6 +177,7 @@ export default function Dashboard() {
   const [aiLoading, setAiLoading] = useState(false);
   const [expandedAssetClass, setExpandedAssetClass] = useState<string | null>(null);
   const [focusedAssetClass, setFocusedAssetClass] = useState<string | null>(null);
+  const [productFilter, setProductFilter] = useState<ProductFilter>("all");
   const linkProvider = useMemo(() => new StaticProductLinkProvider(), []);
 
   useEffect(() => {
@@ -522,23 +524,24 @@ export default function Dashboard() {
                     centerValue="100%"
                     focusedAssetClass={focusedAssetClass}
                   />
-                  <RecommendationRationale rationale={recommendationRationale} />
                 </div>
               </div>
-              <div className="donut-legend" aria-label="자산군 색상과 추천 비중">
-                {ASSET_CLASSES.filter((key: string) => effectivePlan.target[key] > 0).map((key: string) => (
-                  <button
-                    key={key}
-                    className={focusedAssetClass === key ? "active" : ""}
-                    onClick={() => setFocusedAssetClass((current) => current === key ? null : key)}
-                  >
-                    <span className="legend-dot" style={{ background: COLORS[key] }} />
-                    <span>{shortAssetLabel(key)}</span>
-                    <strong>{Number(effectivePlan.target[key]).toFixed(1)}%</strong>
-                  </button>
-                ))}
+              <div className="recommendation-rationale-slot">
+                <RecommendationRationale rationale={recommendationRationale} />
               </div>
+              <PortfolioAllocationComparison
+                plan={effectivePlan}
+                focusedAssetClass={focusedAssetClass}
+                setFocusedAssetClass={setFocusedAssetClass}
+              />
             </section>
+
+            <RecommendedProducts
+              plan={effectivePlan}
+              filter={productFilter}
+              setFilter={setProductFilter}
+              openMock={openMock}
+            />
 
             <section className="panel specification-section">
               <div className="section-heading">
@@ -722,7 +725,7 @@ function RecommendationRationale({
       aria-live="polite"
     >
       <div className="recommendation-rationale-heading">
-        <span className="rationale-spark" aria-hidden="true">✦</span>
+        <span className="rationale-spark" aria-hidden="true">AI</span>
         <h3 id="recommendation-rationale-title">AI 추천 근거</h3>
       </div>
       <p>{rationale.intro}</p>
@@ -736,6 +739,146 @@ function RecommendationRationale({
           <strong>정책 보정</strong>
           <span>{rationale.adjustment}</span>
         </div>
+      ) : null}
+    </section>
+  );
+}
+
+function PortfolioAllocationComparison({
+  plan,
+  focusedAssetClass,
+  setFocusedAssetClass,
+}: {
+  plan: ReturnType<typeof generatePlan>;
+  focusedAssetClass: string | null;
+  setFocusedAssetClass: React.Dispatch<React.SetStateAction<string | null>>;
+}) {
+  const rows = ASSET_CLASSES.filter(
+    (key: string) => Number(plan.current.weights[key]) > 0 || Number(plan.target[key]) > 0,
+  );
+  return (
+    <div className="allocation-comparison" aria-label="현재 포트폴리오와 추천 포트폴리오 비교">
+      <div className="allocation-comparison-head" aria-hidden="true">
+        <span>자산군</span><span>현재</span><span>추천</span><span>차이</span>
+      </div>
+      {rows.map((assetClass: string) => {
+        const currentWeight = Number(plan.current.weights[assetClass] ?? 0);
+        const targetWeight = Number(plan.target[assetClass] ?? 0);
+        const delta = targetWeight - currentWeight;
+        return (
+          <button
+            key={assetClass}
+            className={focusedAssetClass === assetClass ? "active" : ""}
+            onClick={() => setFocusedAssetClass((current) => current === assetClass ? null : assetClass)}
+            aria-label={`${shortAssetLabel(assetClass)} 현재 ${currentWeight.toFixed(1)}%, 추천 ${targetWeight.toFixed(1)}%`}
+          >
+            <span className="allocation-name">
+              <i className="legend-dot" style={{ background: COLORS[assetClass] }} />
+              {shortAssetLabel(assetClass)}
+            </span>
+            <span>{currentWeight.toFixed(1)}%</span>
+            <strong>{targetWeight.toFixed(1)}%</strong>
+            <b className={delta > 1 ? "up" : delta < -1 ? "down" : "same"}>
+              {delta > 0 ? "+" : ""}{delta.toFixed(1)}%p
+            </b>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function productFilterFor(assetClass: string): ProductFilter {
+  if (["cash", "savings", "deposit"].includes(assetClass)) return "bank";
+  if (assetClass === "fund") return "fund";
+  if (assetClass.includes("Etf")) return "etf";
+  return "stock";
+}
+
+function RecommendedProducts({
+  plan,
+  filter,
+  setFilter,
+  openMock,
+}: {
+  plan: ReturnType<typeof generatePlan>;
+  filter: ProductFilter;
+  setFilter: React.Dispatch<React.SetStateAction<ProductFilter>>;
+  openMock: (item: Record<string, unknown> | null, action: "detail" | "subscribe" | "trade") => void;
+}) {
+  const filterLabels: Array<[ProductFilter, string]> = [
+    ["all", "전체"],
+    ["bank", "예·적금"],
+    ["etf", "ETF"],
+    ["fund", "펀드"],
+    ["stock", "주식"],
+  ];
+  const filtered = [...plan.recommendations]
+    .filter((item) => filter === "all" || productFilterFor(item.assetClass) === filter)
+    .sort((a, b) => b.targetWeight - a.targetWeight);
+  const visible = filter === "all" ? filtered.slice(0, 4) : filtered;
+
+  return (
+    <section className="panel recommended-products-section">
+      <div className="section-heading recommended-products-heading">
+        <div>
+          <span className="eyebrow">목표 비중을 실행 가능한 상품으로 연결</span>
+          <h2>추천 상품</h2>
+        </div>
+        <span className="count-badge">{filter === "all" ? `상위 ${visible.length}개` : `${visible.length}개`}</span>
+      </div>
+      <div className="product-filter-tabs" role="tablist" aria-label="추천 상품 유형">
+        {filterLabels.map(([key, label]) => (
+          <button
+            key={key}
+            className={filter === key ? "active" : ""}
+            onClick={() => setFilter(key)}
+            role="tab"
+            aria-selected={filter === key}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="recommended-product-list">
+        {visible.map((item) => {
+          const currentWeight = Number(plan.current.weights[item.assetClass] ?? 0);
+          const advisorAction = "advisorAction" in item ? String(item.advisorAction) : undefined;
+          const action = displayAction(currentWeight, item.targetWeight, advisorAction);
+          const assumption = item.rateQuote?.baseRate != null
+            ? `기본 연 ${item.rateQuote.baseRate}%`
+            : item.expectedReturn
+              ? `연 ${item.expectedReturn}% 가정`
+              : "시장 수익률 연동";
+          return (
+            <article className="recommended-product-card" key={item.assetClass}>
+              <div className="recommended-product-topline">
+                <span className={providerClass(item.provider)}>{item.provider}</span>
+                <span className="product-risk">위험 {item.riskGrade}등급</span>
+              </div>
+              <span className="recommended-product-class">{shortAssetLabel(item.assetClass)}</span>
+              <h3>{item.name}</h3>
+              <div className="recommended-product-numbers">
+                <div><span>추천 비중</span><strong>{item.targetWeight.toFixed(1)}%</strong></div>
+                <div><span>추천 금액</span><strong>{compactCurrency(item.targetAmount)}</strong></div>
+              </div>
+              <div className="recommended-product-summary">
+                <span>{assumption}</span>
+                <b className={`action-badge action-${action.replace(/\s/g, "-")}`}>{action}</b>
+              </div>
+              <p>{item.reason}</p>
+              <div className="card-actions">
+                <button className="secondary-button" onClick={() => openMock(item, "detail")}>상세보기</button>
+                <button className="primary-button" onClick={() => openMock(item, item.kind === "bank" ? "subscribe" : "trade")}>
+                  {item.kind === "bank" ? "가입하기" : "M-able 확인"}
+                </button>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      {filter === "all" && filtered.length > visible.length ? (
+        <p className="recommended-products-note">자산별 전체 후보와 세부 조건은 아래 포트폴리오 명세서에서 확인할 수 있어요.</p>
       ) : null}
     </section>
   );
