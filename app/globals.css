@@ -2596,8 +2596,112 @@ body {
   margin-top: 18px;
 }
 
-.performance-panel {
+.previous-goal-panel {
   margin-top: 18px;
+}
+
+.goal-history-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: stretch;
+  gap: 14px;
+}
+
+.goal-history-summary > div {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid #e4e5e7;
+  border-radius: 12px;
+  background: #f8f8f9;
+}
+
+.goal-history-summary > div:last-child {
+  border-color: #ead267;
+  background: #fffaf0;
+}
+
+.goal-history-summary span,
+.goal-history-summary small {
+  color: #747980;
+  font-size: 12px;
+}
+
+.goal-history-summary strong {
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.goal-history-arrow {
+  display: grid;
+  place-items: center;
+  color: #9a7b00 !important;
+  font-size: 20px !important;
+  font-weight: 900;
+}
+
+.goal-change-reasons {
+  margin: 14px 0;
+  color: #5e6369;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.goal-change-reasons b {
+  margin-right: 8px;
+  color: #282a2d;
+}
+
+.goal-change-list {
+  overflow: hidden;
+  border: 1px solid #e4e5e7;
+  border-radius: 12px;
+}
+
+.goal-change-list > div {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr) 64px auto 64px 74px;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 10px 14px;
+  border-top: 1px solid #eceef0;
+  font-size: 13px;
+}
+
+.goal-change-list > div:first-child {
+  border-top: 0;
+}
+
+.goal-change-list > div > span:not(.legend-dot) {
+  color: #676c72;
+  text-align: right;
+}
+
+.goal-change-list em {
+  border-radius: 999px;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+  text-align: center;
+}
+
+.goal-change-list em.up {
+  background: #e8f5ee;
+  color: #08794f;
+}
+
+.goal-change-list em.down {
+  background: #fff1e4;
+  color: #a65b18;
+}
+
+.goal-change-list > p {
+  margin: 0;
+  padding: 16px;
+  color: #747980;
+  font-size: 13px;
 }
 
 .comparison-grid > div > span,
@@ -2772,6 +2876,57 @@ body {
 
   .allocation-panel .section-heading {
     flex-direction: column;
+  }
+
+  .previous-goal-panel .section-heading,
+  .specification-section .section-heading {
+    align-items: center;
+  }
+
+  .goal-history-summary {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .goal-history-summary > div {
+    padding: 14px;
+  }
+
+  .goal-history-summary strong {
+    font-size: 15px;
+  }
+
+  .goal-history-arrow {
+    min-height: 20px;
+    transform: rotate(90deg);
+  }
+
+  .goal-change-reasons {
+    font-size: 14px;
+  }
+
+  .goal-change-reasons b {
+    display: block;
+    margin: 0 0 3px;
+  }
+
+  .goal-change-list > div {
+    grid-template-columns: auto minmax(72px, 1fr) 42px auto 42px 62px;
+    gap: 5px;
+    min-height: 52px;
+    padding: 10px;
+    font-size: 12px;
+  }
+
+  .goal-change-list > div > strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .goal-change-list em {
+    padding: 5px;
+    font-size: 11px;
   }
 
   .section-heading h2,

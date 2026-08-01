@@ -11,8 +11,9 @@ import {
 import { StaticProductLinkProvider } from "@/lib/providers";
 import { buildRecommendationRationale } from "@/lib/recommendation-rationale.mjs";
 
-const STORAGE_KEY = "kb-child-portfolio-prototype:v4";
-const PREVIOUS_STORAGE_KEY = "kb-child-portfolio-prototype:v3";
+const STORAGE_KEY = "kb-child-portfolio-prototype:v5";
+const PREVIOUS_STORAGE_KEY = "kb-child-portfolio-prototype:v4";
+const OLDER_STORAGE_KEY = "kb-child-portfolio-prototype:v3";
 const LEGACY_STORAGE_KEY = "kb-child-portfolio-demo:v1";
 const COLORS: Record<string, string> = {
   cash: "#8c8c8c",
@@ -25,14 +26,20 @@ const COLORS: Record<string, string> = {
   overseasStock: "#9a73d9",
 };
 const LABELS = ASSET_LABELS as Record<string, string>;
-const INVESTMENT_TAX_RULES = prototypeCatalog.investmentTaxRules as Record<string, unknown>;
 
 type AssetPreference = "savings" | "deposit" | "stock" | "bond";
 type StrategyPreference = "etf" | "individual" | "us" | "domestic";
 type ProductFilter = "all" | "bank" | "etf" | "fund" | "stock";
-type ResultTab = "portfolio" | "products" | "specification" | "rebalance";
+type ResultTab = "portfolio" | "products" | "rebalance";
 type PortfolioPlan = ReturnType<typeof generatePlan>;
 type PortfolioRecommendation = PortfolioPlan["recommendations"][number];
+
+type PreferenceProfile = {
+  horizonYears: number;
+  monthlyContribution: number;
+  assetRanking: AssetPreference[];
+  strategyRanking: StrategyPreference[];
+};
 
 const ASSET_PREFERENCE_LABELS: Record<AssetPreference, string> = {
   savings: "적금",
@@ -53,6 +60,7 @@ type PrototypeState = {
   monthlyContribution: number;
   assetRanking: AssetPreference[];
   strategyRanking: StrategyPreference[];
+  previousProfile: PreferenceProfile;
   proposedGift: {
     date: string;
     amount: number;
@@ -102,6 +110,12 @@ const initialState: PrototypeState = {
   monthlyContribution: 500000,
   assetRanking: ["savings", "deposit", "stock", "bond"],
   strategyRanking: ["etf", "individual", "us", "domestic"],
+  previousProfile: {
+    horizonYears: 4,
+    monthlyContribution: 400000,
+    assetRanking: ["deposit", "savings", "bond", "stock"],
+    strategyRanking: ["etf", "domestic", "us", "individual"],
+  },
   proposedGift: {
     date: "2026-07-30",
     amount: 5000000,
@@ -128,12 +142,9 @@ function migrateStoredState(value: unknown): PrototypeState {
   const strategyKeys: StrategyPreference[] = ["etf", "individual", "us", "domestic"];
   return {
     activeTab:
-      stored.activeTab === "portfolio" ||
-      stored.activeTab === "products" ||
-      stored.activeTab === "specification" ||
-      stored.activeTab === "rebalance"
+      stored.activeTab === "products" || stored.activeTab === "rebalance"
         ? stored.activeTab
-        : initialState.activeTab,
+        : "portfolio",
     horizonYears:
       typeof stored.horizonYears === "number" ? stored.horizonYears : initialState.horizonYears,
     monthlyContribution:
@@ -146,6 +157,14 @@ function migrateStoredState(value: unknown): PrototypeState {
     strategyRanking: isRanking(stored.strategyRanking, strategyKeys)
       ? stored.strategyRanking
       : initialState.strategyRanking,
+    previousProfile:
+      stored.previousProfile &&
+      typeof stored.previousProfile.horizonYears === "number" &&
+      typeof stored.previousProfile.monthlyContribution === "number" &&
+      isRanking(stored.previousProfile.assetRanking, assetKeys) &&
+      isRanking(stored.previousProfile.strategyRanking, strategyKeys)
+        ? stored.previousProfile
+        : initialState.previousProfile,
     proposedGift:
       stored.proposedGift &&
       typeof stored.proposedGift === "object" &&
@@ -192,6 +211,7 @@ export default function Dashboard() {
       const stored =
         window.localStorage.getItem(STORAGE_KEY) ??
         window.localStorage.getItem(PREVIOUS_STORAGE_KEY) ??
+        window.localStorage.getItem(OLDER_STORAGE_KEY) ??
         window.localStorage.getItem(LEGACY_STORAGE_KEY);
       if (stored) storedState = migrateStoredState(JSON.parse(stored));
     } catch {
@@ -235,6 +255,22 @@ export default function Dashboard() {
       state.proposedGift,
       state.strategyRanking,
     ],
+  );
+
+  const previousPlan = useMemo(
+    () =>
+      generatePlan({
+        bankProducts: prototypeCatalog.bankProducts,
+        securitiesAssets: prototypeCatalog.securitiesAssets,
+        data,
+        profile: state.previousProfile,
+        proposedGift: state.proposedGift,
+        giftTaxRules: prototypeCatalog.giftTaxRules,
+        investmentTaxRules: prototypeCatalog.investmentTaxRules,
+        feeAssumptions: prototypeCatalog.feeAssumptions,
+        productPolicies: prototypeCatalog.productPolicies,
+      }),
+    [data, state.previousProfile, state.proposedGift],
   );
 
   const child = data.children[0];
@@ -358,10 +394,39 @@ export default function Dashboard() {
   function resetPrototype() {
     window.localStorage.removeItem(STORAGE_KEY);
     window.localStorage.removeItem(PREVIOUS_STORAGE_KEY);
+    window.localStorage.removeItem(OLDER_STORAGE_KEY);
     window.localStorage.removeItem(LEGACY_STORAGE_KEY);
     setState(initialState);
     setAiAdvice(null);
     setAiAdviceSignature(null);
+    setModal(null);
+  }
+
+  function saveGoalProfile(nextProfile: PreferenceProfile) {
+    const currentProfile: PreferenceProfile = {
+      horizonYears: state.horizonYears,
+      monthlyContribution: state.monthlyContribution,
+      assetRanking: state.assetRanking,
+      strategyRanking: state.strategyRanking,
+    };
+    if (JSON.stringify(currentProfile) === JSON.stringify(nextProfile)) {
+      setModal(null);
+      return;
+    }
+    setState((current) => ({
+      ...current,
+      ...nextProfile,
+      previousProfile: {
+        horizonYears: current.horizonYears,
+        monthlyContribution: current.monthlyContribution,
+        assetRanking: [...current.assetRanking],
+        strategyRanking: [...current.strategyRanking],
+      },
+      activeTab: "portfolio",
+    }));
+    setAiAdvice(null);
+    setAiAdviceSignature(null);
+    setExpandedAssetClass(null);
     setModal(null);
   }
 
@@ -494,12 +559,6 @@ export default function Dashboard() {
             추천 상품
           </button>
           <button
-            className={state.activeTab === "specification" ? "active" : ""}
-            onClick={() => setState((current) => ({ ...current, activeTab: "specification" }))}
-          >
-            포트폴리오 명세서
-          </button>
-          <button
             className={state.activeTab === "rebalance" ? "active" : ""}
             onClick={() => setState((current) => ({ ...current, activeTab: "rebalance" }))}
           >
@@ -508,7 +567,8 @@ export default function Dashboard() {
         </nav>
 
         {state.activeTab === "portfolio" ? (
-          <section className="panel allocation-panel">
+          <>
+            <section className="panel allocation-panel">
               <div className="section-heading">
                 <div>
                   <span className="eyebrow">현재 vs AI 추천</span>
@@ -551,7 +611,46 @@ export default function Dashboard() {
                 focusedAssetClass={focusedAssetClass}
                 setFocusedAssetClass={setFocusedAssetClass}
               />
-          </section>
+            </section>
+
+            <PreviousGoalComparison
+              previousPlan={previousPlan}
+              currentPlan={effectivePlan}
+              previousProfile={state.previousProfile}
+              currentProfile={{
+                horizonYears: state.horizonYears,
+                monthlyContribution: state.monthlyContribution,
+                assetRanking: state.assetRanking,
+                strategyRanking: state.strategyRanking,
+              }}
+            />
+
+            <section className="panel specification-section">
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">자산군별 추천 상품과 실행 조치</span>
+                  <h2>포트폴리오 명세서</h2>
+                </div>
+                <span className="count-badge">{effectivePlan.recommendations.length}개 KB 후보</span>
+              </div>
+              <PortfolioSpecification
+                plan={effectivePlan}
+                expandedAssetClass={expandedAssetClass}
+                setExpandedAssetClass={setExpandedAssetClass}
+                focusedAssetClass={focusedAssetClass}
+                setFocusedAssetClass={setFocusedAssetClass}
+                openMock={openMock}
+              />
+              {effectivePlan.limitations.length > 0 ? (
+                <div className="limitations">
+                  <strong>KB 상품만으로 충족하지 못한 항목</strong>
+                  {effectivePlan.limitations.map((item: { assetClass: string; message: string }) => (
+                    <p key={item.assetClass}>{item.message}</p>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+          </>
         ) : null}
 
         {state.activeTab === "products" ? (
@@ -563,81 +662,7 @@ export default function Dashboard() {
           />
         ) : null}
 
-        {state.activeTab === "specification" ? (
-          <section className="panel specification-section">
-            <div className="section-heading">
-              <div>
-                <span className="eyebrow">현재·추천·조치를 한 행에서 비교</span>
-                <h2>포트폴리오 명세서</h2>
-              </div>
-              <span className="count-badge">{effectivePlan.recommendations.length}개 KB 후보</span>
-            </div>
-            <PortfolioSpecification
-              plan={effectivePlan}
-              expandedAssetClass={expandedAssetClass}
-              setExpandedAssetClass={setExpandedAssetClass}
-              focusedAssetClass={focusedAssetClass}
-              setFocusedAssetClass={setFocusedAssetClass}
-              openMock={openMock}
-            />
-            {effectivePlan.limitations.length > 0 ? (
-              <div className="limitations">
-                <strong>KB 상품만으로 충족하지 못한 항목</strong>
-                {effectivePlan.limitations.map((item: { assetClass: string; message: string }) => (
-                  <p key={item.assetClass}>{item.message}</p>
-                ))}
-              </div>
-            ) : null}
-          </section>
-        ) : null}
-
         {state.activeTab === "rebalance" ? <RebalanceView plan={effectivePlan} /> : null}
-
-        <section className="panel performance-panel">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">자동 전환이 아닌 비교정보</span>
-              <h2>KB 적금 대비 성과 점검</h2>
-            </div>
-            <span className="period-pill">최근 12개월</span>
-          </div>
-          <div className="comparison-grid">
-            <div className="benchmark-card">
-              <span>비교 대상</span>
-              <strong>{plan.performanceComparison.productName}</strong>
-              <dl>
-                <div><dt>기본금리</dt><dd>{plan.performanceComparison.baseRate}%</dd></div>
-                <div><dt>확인 우대 적용</dt><dd>{plan.performanceComparison.expectedRate}%</dd></div>
-                <div><dt>세후 기준수익률</dt><dd>{plan.performanceComparison.expectedAfterTax}%</dd></div>
-              </dl>
-            </div>
-            <div className="performance-score">
-              <span>동일 기간 포트폴리오 세후 수익률</span>
-              <strong>{plan.performanceComparison.portfolioAfterTaxReturn}%</strong>
-              <p>
-                KB 적금 예상 대비{" "}
-                <b>
-                  {plan.performanceComparison.difference != null &&
-                  plan.performanceComparison.difference > 0
-                    ? "+"
-                    : ""}
-                  {plan.performanceComparison.difference ?? "계산 제외"}%p
-                </b>
-              </p>
-            </div>
-            <div className="cause-list">
-              <span>주요 원인</span>
-              {plan.performanceComparison.causes.map((cause: string) => <p key={cause}>· {cause}</p>)}
-            </div>
-          </div>
-          <div className="choice-row">
-            {plan.performanceComparison.options.map((option: string) => <button key={option}>{option}</button>)}
-          </div>
-          <p className="tax-disclaimer">
-            {String(INVESTMENT_TAX_RULES.disclaimer)} 본 계산은{" "}
-            {String(INVESTMENT_TAX_RULES.demo_label)}입니다.
-          </p>
-        </section>
 
         <footer>
           <strong>KB 우리 아이 자산관리</strong>
@@ -656,7 +681,7 @@ export default function Dashboard() {
           >
             <button className="modal-close" onClick={() => setModal(null)} aria-label="닫기">×</button>
             {modal === "goal" ? (
-              <GoalForm state={state} setState={setState} close={() => setModal(null)} />
+              <GoalForm state={state} onSave={saveGoalProfile} />
             ) : null}
             {modal === "assets" ? <AssetsList plan={plan} data={data} /> : null}
             {modal === "mock" ? (
@@ -898,7 +923,7 @@ function RecommendedProducts({
         })}
       </div>
       {filter === "all" && filtered.length > visible.length ? (
-        <p className="recommended-products-note">자산별 전체 후보와 세부 조건은 포트폴리오 명세서 탭에서 확인할 수 있어요.</p>
+        <p className="recommended-products-note">자산별 전체 후보와 세부 조건은 목표 포트폴리오 아래 명세서에서 확인할 수 있어요.</p>
       ) : null}
     </section>
   );
@@ -913,6 +938,98 @@ function displayAction(currentWeight: number, targetWeight: number, advisorActio
   if (gap > 1) return "추가";
   if (gap < -1) return "축소 검토";
   return "유지";
+}
+
+function preferenceProfileLabel(profile: PreferenceProfile) {
+  const equityStyle = profile.strategyRanking.indexOf("etf") < profile.strategyRanking.indexOf("individual")
+    ? "ETF 중심"
+    : "개별종목 중심";
+  const market = profile.strategyRanking.indexOf("us") < profile.strategyRanking.indexOf("domestic")
+    ? "미주 중심"
+    : "국내 중심";
+  return `${ASSET_PREFERENCE_LABELS[profile.assetRanking[0]]} 우선 · ${equityStyle} · ${market}`;
+}
+
+function PreviousGoalComparison({
+  previousPlan,
+  currentPlan,
+  previousProfile,
+  currentProfile,
+}: {
+  previousPlan: PortfolioPlan;
+  currentPlan: PortfolioPlan;
+  previousProfile: PreferenceProfile;
+  currentProfile: PreferenceProfile;
+}) {
+  const changes = ASSET_CLASSES.map((assetClass: string) => {
+    const previousWeight = Number(previousPlan.target[assetClass] ?? 0);
+    const currentWeight = Number(currentPlan.target[assetClass] ?? 0);
+    return { assetClass, previousWeight, currentWeight, delta: currentWeight - previousWeight };
+  })
+    .filter((item) => Math.abs(item.delta) >= 0.05)
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+    .slice(0, 4);
+
+  const reasons: string[] = [];
+  if (previousProfile.assetRanking[0] !== currentProfile.assetRanking[0]) {
+    reasons.push(`${ASSET_PREFERENCE_LABELS[previousProfile.assetRanking[0]]} 우선에서 ${ASSET_PREFERENCE_LABELS[currentProfile.assetRanking[0]]} 우선으로 변경`);
+  }
+  if (previousProfile.horizonYears !== currentProfile.horizonYears) {
+    reasons.push(`투자기간 ${previousProfile.horizonYears}년에서 ${currentProfile.horizonYears}년으로 변경`);
+  }
+  if (previousProfile.monthlyContribution !== currentProfile.monthlyContribution) {
+    reasons.push(`월 저축 계획 ${compactCurrency(previousProfile.monthlyContribution)}에서 ${compactCurrency(currentProfile.monthlyContribution)}으로 변경`);
+  }
+  if (JSON.stringify(previousProfile.strategyRanking) !== JSON.stringify(currentProfile.strategyRanking)) {
+    reasons.push("투자 방식과 선호 시장 순위 변경");
+  }
+
+  return (
+    <section className="panel previous-goal-panel">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">목표를 바꾼 뒤 달라진 자산 배분</span>
+          <h2>지난 목표 대비 변화</h2>
+        </div>
+        <span className="count-badge">상위 {changes.length}개 변화</span>
+      </div>
+
+      <div className="goal-history-summary">
+        <div>
+          <span>이전 목표</span>
+          <strong>{preferenceProfileLabel(previousProfile)}</strong>
+          <small>{previousProfile.horizonYears}년 · 월 {compactCurrency(previousProfile.monthlyContribution)}</small>
+        </div>
+        <span className="goal-history-arrow" aria-hidden="true">→</span>
+        <div>
+          <span>현재 목표</span>
+          <strong>{preferenceProfileLabel(currentProfile)}</strong>
+          <small>{currentProfile.horizonYears}년 · 월 {compactCurrency(currentProfile.monthlyContribution)}</small>
+        </div>
+      </div>
+
+      {reasons.length > 0 ? (
+        <p className="goal-change-reasons"><b>변경한 조건</b>{reasons.join(" · ")}</p>
+      ) : (
+        <p className="goal-change-reasons">입력 조건은 같지만 AI 분석 또는 상품 적합성 검증 결과에 따라 비중이 조정되었습니다.</p>
+      )}
+
+      <div className="goal-change-list" aria-label="이전 목표와 현재 목표의 주요 비중 변화">
+        {changes.length > 0 ? changes.map((change) => (
+          <div key={change.assetClass}>
+            <span className="legend-dot" style={{ background: COLORS[change.assetClass] }} />
+            <strong>{shortAssetLabel(change.assetClass)}</strong>
+            <span>{change.previousWeight.toFixed(1)}%</span>
+            <b aria-hidden="true">→</b>
+            <span>{change.currentWeight.toFixed(1)}%</span>
+            <em className={change.delta > 0 ? "up" : "down"}>
+              {change.delta > 0 ? "+" : ""}{change.delta.toFixed(1)}%p
+            </em>
+          </div>
+        )) : <p>이전 목표와 비교해 달라진 자산군 비중이 없습니다.</p>}
+      </div>
+    </section>
+  );
 }
 
 function PortfolioSpecification({
@@ -1129,13 +1246,18 @@ function SpecificationDetail({
 
 function GoalForm({
   state,
-  setState,
-  close,
+  onSave,
 }: {
   state: PrototypeState;
-  setState: React.Dispatch<React.SetStateAction<PrototypeState>>;
-  close: () => void;
+  onSave: (profile: PreferenceProfile) => void;
 }) {
+  const [draft, setDraft] = useState<PreferenceProfile>({
+    horizonYears: state.horizonYears,
+    monthlyContribution: state.monthlyContribution,
+    assetRanking: [...state.assetRanking],
+    strategyRanking: [...state.strategyRanking],
+  });
+
   return (
     <div>
       <span className="eyebrow">두 가지 선호 순위</span>
@@ -1143,8 +1265,8 @@ function GoalForm({
       <label>
         남은 투자기간
         <select
-          value={state.horizonYears}
-          onChange={(event) => setState((current) => ({ ...current, horizonYears: Number(event.target.value) }))}
+          value={draft.horizonYears}
+          onChange={(event) => setDraft((current) => ({ ...current, horizonYears: Number(event.target.value) }))}
         >
           <option value="2">2년</option>
           <option value="4">4년</option>
@@ -1157,30 +1279,30 @@ function GoalForm({
         <input
           type="number"
           step="10000"
-          value={state.monthlyContribution}
-          onChange={(event) => setState((current) => ({ ...current, monthlyContribution: Number(event.target.value) }))}
+          value={draft.monthlyContribution}
+          onChange={(event) => setDraft((current) => ({ ...current, monthlyContribution: Number(event.target.value) }))}
         />
       </label>
       <RankingList
         title="자산 선호 순위"
         description="목표 포트폴리오의 적금·예금·주식·채권 비중에 반영합니다."
-        ranking={state.assetRanking}
+        ranking={draft.assetRanking}
         labels={ASSET_PREFERENCE_LABELS}
-        onChange={(assetRanking) => setState((current) => ({ ...current, assetRanking }))}
+        onChange={(assetRanking) => setDraft((current) => ({ ...current, assetRanking }))}
       />
       <RankingList
         title="투자 방식 순위"
         description="주식 비중 안에서 ETF·개별종목과 미주·국내 배분에 반영합니다."
-        ranking={state.strategyRanking}
+        ranking={draft.strategyRanking}
         labels={STRATEGY_PREFERENCE_LABELS}
         onChange={(strategyRanking) =>
-          setState((current) => ({ ...current, strategyRanking }))
+          setDraft((current) => ({ ...current, strategyRanking }))
         }
       />
       <p className="form-note">
         이 순위는 목표 배분을 위한 참고 기준이며 공식 투자성향 진단이 아닙니다.
       </p>
-      <button className="primary-button full-button" onClick={close}>추천 다시 계산</button>
+      <button className="primary-button full-button" onClick={() => onSave(draft)}>추천 다시 계산</button>
     </div>
   );
 }
