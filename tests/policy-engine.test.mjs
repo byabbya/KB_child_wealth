@@ -416,6 +416,8 @@ test("recommendation rationale distinguishes baseline, AI, adjustment, fallback,
   const baseline = buildRecommendationRationale({ advice: null, context: rationaleContext });
   assert.equal(baseline.state, "baseline");
   assert.equal(baseline.reasons.length, 3);
+  assert.match(baseline.reasons[0], /^1순위인/);
+  assert.match(baseline.reasons[1], /ETF 중심과 미국시장/);
   assert.match(baseline.reasons.join(" "), /적금.*8년/);
   assert.match(baseline.reasons.join(" "), /ETF 중심.*미국시장/);
   assert.match(baseline.reasons.join(" "), /보유.*3개/);
