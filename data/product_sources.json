@@ -1,5 +1,5 @@
 {
-  "demoLabel": "프로토타입용 샘플 데이터",
+  "demoLabel": "샘플 데이터",
   "lastReviewedAt": "2026-07-30",
   "sources": [
     {
@@ -95,8 +95,8 @@
     },
     {
       "id": "source:prototype-policy",
-      "name": "프로토타입 필터 검증 데이터",
-      "provider": "프로토타입",
+      "name": "필터 검증용 데이터",
+      "provider": "검증용 데이터",
       "url": null,
       "official": false
     },

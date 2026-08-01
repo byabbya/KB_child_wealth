@@ -192,7 +192,7 @@ export default function Dashboard() {
         window.localStorage.getItem(LEGACY_STORAGE_KEY);
       if (stored) storedState = migrateStoredState(JSON.parse(stored));
     } catch {
-      // 손상된 로컬 프로토타입 상태는 안전하게 샘플값으로 대체합니다.
+      // 손상된 로컬 상태는 안전하게 샘플값으로 대체합니다.
     }
     const timer = window.setTimeout(() => {
       if (storedState) setState(storedState);
@@ -314,8 +314,8 @@ export default function Dashboard() {
           "세금·수수료 규칙",
         ],
         alternatives: ["신규 입금 배분 조정", "예·적금 만기 후 재배분"],
-        assumptions: ["프로토타입용 샘플 데이터"],
-        summary: "선호 순위와 금융 규칙을 적용한 결정론적 기준 포트폴리오입니다.",
+        assumptions: ["샘플 자산 데이터"],
+        summary: "선호 순위와 금융 기준을 적용한 기본 포트폴리오입니다.",
       };
       const response = await fetch("/api/portfolio-advice", {
         method: "POST",
@@ -354,14 +354,14 @@ export default function Dashboard() {
         status: "fallback",
         provider: "deterministic",
         model: null,
-        message: `AI 연결 실패 · 규칙 기반 대체 결과 (${error instanceof Error ? error.message : "원인 미확인"})`,
+        message: `AI 연결 실패 · 기본 추천 표시 (${error instanceof Error ? error.message : "원인 미확인"})`,
         consideredFactors: ["선호 순위", "투자기간", "KB 상품 적합성", "세금·수수료 규칙"],
         adjustments: [],
         originalProposal: null,
         proposal: {
           allocations: plan.target,
           recommendations: [],
-          summary: "결정론적 규칙 엔진이 생성한 안전한 대체 결과입니다.",
+          summary: "금융 기준을 적용한 안전한 기본 추천입니다.",
         },
       });
       setAiAdviceSignature(requestSignature);
@@ -380,6 +380,16 @@ export default function Dashboard() {
     setModal(null);
   }
 
+  const aiResultLabel = aiLoading
+    ? "AI가 포트폴리오를 분석하고 있습니다."
+    : currentAdvice?.status === "validated"
+      ? `${currentAdvice.provider === "gemini" ? "Gemini" : "Ollama"} AI 분석 결과가 반영되었습니다.`
+      : currentAdvice?.status === "adjusted"
+        ? "AI 분석 결과를 금융 기준에 맞게 조정하여 반영했습니다."
+        : currentAdvice?.status === "fallback"
+          ? "AI 연결이 원활하지 않아 기본 추천을 표시합니다."
+          : "현재는 선호와 투자기간을 반영한 기본 추천입니다.";
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -391,7 +401,6 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="header-actions">
-          <span className="prototype-chip">프로토타입</span>
           <button className="icon-button" onClick={resetPrototype} aria-label="샘플 데이터 초기화">
             ↻
           </button>
@@ -453,7 +462,7 @@ export default function Dashboard() {
             <div className="connection-copy">
               <span className="status-dot connected" />
               <div>
-                <strong>프로토타입용 샘플 데이터</strong>
+                <strong>샘플 자산 데이터</strong>
                 <span>실제 자녀·계좌 정보를 조회하거나 연결하지 않습니다.</span>
               </div>
             </div>
@@ -510,15 +519,16 @@ export default function Dashboard() {
                   <span className="eyebrow">현재 vs AI 추천</span>
                   <h2>한눈에 보는 자산 배분</h2>
                 </div>
-                <span className="preference-pill">
-                  {plan.preference.label} · {state.horizonYears}년
-                </span>
+                <div className="allocation-heading-actions">
+                  <span className="preference-pill">
+                    {plan.preference.label} · {state.horizonYears}년
+                  </span>
+                  <button className="ai-run-button" onClick={requestAiAdvice} disabled={aiLoading}>
+                    {aiLoading ? "AI 분석 중…" : currentAdvice ? "AI 다시 분석" : "AI 포트폴리오 분석"}
+                  </button>
+                </div>
               </div>
-              <AiAdvisorStatus
-                advice={currentAdvice}
-                loading={aiLoading}
-                run={requestAiAdvice}
-              />
+              <p className={`ai-inline-status ${currentAdvice?.status ?? "idle"}`}>{aiResultLabel}</p>
               <div className="donut-comparison">
                 <PortfolioDonut
                   title="현재 포트폴리오"
@@ -529,9 +539,9 @@ export default function Dashboard() {
                 />
                 <div className="donut-arrow" aria-hidden="true">→</div>
                 <PortfolioDonut
-                  title={currentAdvice && currentAdvice.status !== "fallback" ? "AI 추천 포트폴리오" : "규칙 기준 포트폴리오"}
+                  title={currentAdvice && currentAdvice.status !== "fallback" ? "AI 추천 포트폴리오" : "기본 추천 포트폴리오"}
                   weights={effectivePlan.target}
-                  centerTop={currentAdvice && currentAdvice.status !== "fallback" ? "AI 추천" : "규칙 기준안"}
+                  centerTop={currentAdvice && currentAdvice.status !== "fallback" ? "AI 추천" : "기본 추천"}
                   centerValue="100%"
                   focusedAssetClass={focusedAssetClass}
                 />
@@ -627,7 +637,7 @@ export default function Dashboard() {
 
         <footer>
           <strong>KB 우리 아이 자산관리</strong>
-          <p>프로토타입용 샘플 데이터 · 실제 금융자문, 계좌 개설 또는 주문 서비스가 아닙니다.</p>
+          <p>샘플 데이터 · 실제 금융자문, 계좌 개설 또는 주문 서비스가 아닙니다.</p>
         </footer>
       </div>
 
@@ -710,7 +720,7 @@ function GiftTaxSummary({
     <section className="panel gift-tax-panel">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">결정론적 증여세 규칙 엔진</span>
+          <span className="eyebrow">최근 10년 증여 내역 기준</span>
           <h2>10년 증여재산공제 시뮬레이션</h2>
         </div>
         <button className="secondary-button" onClick={openSimulator}>금액 바꾸기</button>
@@ -806,61 +816,6 @@ function PortfolioDonut({
         </div>
       </div>
     </figure>
-  );
-}
-
-function AiAdvisorStatus({
-  advice,
-  loading,
-  run,
-}: {
-  advice: AiAdvice | null;
-  loading: boolean;
-  run: () => void;
-}) {
-  const providerLabel =
-    advice?.provider === "gemini"
-      ? "Gemini"
-      : advice?.provider === "ollama"
-        ? "Ollama"
-        : "규칙 엔진";
-  const statusLabel =
-    advice?.status === "validated"
-      ? `${providerLabel} AI 제안 · 정책 검증 통과`
-      : advice?.status === "adjusted"
-        ? "AI 원안 · 정책 엔진 보정"
-        : advice?.status === "fallback"
-          ? "AI 연결 실패 · 규칙 기반 대체 결과"
-          : "분석 전 · 규칙 기준안";
-  return (
-    <div className={`advisor-status-card ${advice?.status ?? "idle"}`}>
-      <div className="advisor-status-main">
-        <div>
-          <span className="advisor-kicker">PortfolioAdvisorAgent</span>
-          <strong>{statusLabel}</strong>
-          <p>
-            {advice?.proposal.summary ??
-              "선호 순위와 투자기간으로 만든 기준안입니다. AI 분석 후 검증된 제안이 이 화면 전체에 반영됩니다."}
-          </p>
-        </div>
-        <button className="ai-run-button" onClick={run} disabled={loading}>
-          {loading ? "AI 분석 중…" : advice ? "AI 다시 분석" : "AI 포트폴리오 분석"}
-        </button>
-      </div>
-      <div className="advisor-facts">
-        <span>{advice?.model ? `사용 모델 · ${providerLabel} / ${advice.model}` : "금융 계산 · 규칙 엔진"}</span>
-        {(advice?.consideredFactors?.length
-          ? advice.consideredFactors
-          : ["선호 순위", "투자기간", "KB 상품 적합성", "세금·수수료"]
-        ).slice(0, 4).map((item) => <small key={item}>{item}</small>)}
-      </div>
-      {advice?.adjustments?.length ? (
-        <details className="advisor-adjustments">
-          <summary>정책 엔진 보정 {advice.adjustments.length}건 보기</summary>
-          {advice.adjustments.map((item) => <p key={item}>· {item}</p>)}
-        </details>
-      ) : null}
-    </div>
   );
 }
 
@@ -1044,7 +999,7 @@ function GoalForm({
         }
       />
       <p className="form-note">
-        이 순위는 프로토타입의 목표 배분 기준이며 공식 투자성향 진단이 아닙니다.
+        이 순위는 목표 배분을 위한 참고 기준이며 공식 투자성향 진단이 아닙니다.
       </p>
       <button className="primary-button full-button" onClick={close}>추천 다시 계산</button>
     </div>

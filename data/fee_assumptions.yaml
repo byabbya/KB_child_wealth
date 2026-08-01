@@ -1,5 +1,5 @@
 {
-  "demo_label": "프로토타입 비용 가정",
+  "demo_label": "비교 목적 비용 가정",
   "effective_date": "2026-07-30",
   "last_verified_at": "2026-07-30",
   "schedules": {
@@ -13,7 +13,7 @@
       "buy_commission_rate": 0.001,
       "sell_commission_rate": 0.001,
       "fx_spread_rate": 0,
-      "note": "실제 수수료는 계좌와 거래 채널에 따라 달라지는 프로토타입 가정"
+      "note": "실제 수수료는 계좌와 거래 채널에 따라 달라지는 비교 목적 가정"
     },
     "kbsec_overseas": {
       "buy_commission_rate": 0.0025,
@@ -26,5 +26,5 @@
     "source:kbsec-mable",
     "source:kbsec-global"
   ],
-  "disclaimer": "법정세율이 아닌 비교 목적의 프로토타입 비용 가정입니다."
+  "disclaimer": "법정세율이 아닌 비교 목적의 비용 가정입니다."
 }

@@ -111,7 +111,6 @@ button {
   gap: 10px;
 }
 
-.prototype-chip,
 .mock-badge {
   border: 1px solid #e5c34f;
   border-radius: 999px;
@@ -1294,10 +1293,6 @@ footer p {
     padding-top: 12px;
   }
 
-  .prototype-chip {
-    display: none;
-  }
-
   .product-notice {
     padding: 11px 12px;
   }
@@ -1673,102 +1668,36 @@ footer p {
   }
 }
 
-/* AI 적용 포트폴리오 비교 */
-.advisor-status-card {
-  background: #f7f5ef;
-  border: 1px solid #e8e1d4;
-  border-radius: 18px;
-  margin: 20px 0 24px;
-  padding: 18px;
-}
-
-.advisor-status-card.validated {
-  background: #edf8f2;
-  border-color: #b9dfca;
-}
-
-.advisor-status-card.adjusted {
-  background: #fff8dd;
-  border-color: #ead36c;
-}
-
-.advisor-status-card.fallback {
-  background: #fff4e8;
-  border-color: #e8c39d;
-}
-
-.advisor-status-main {
-  align-items: flex-start;
-  display: flex;
-  gap: 20px;
-  justify-content: space-between;
-}
-
-.advisor-status-main strong {
-  display: block;
-  font-size: 17px;
-  line-height: 1.4;
-}
-
-.advisor-status-main p {
-  color: #655e55;
-  font-size: 13px;
-  line-height: 1.6;
-  margin: 6px 0 0;
-  max-width: 760px;
-}
-
-.advisor-kicker {
-  color: #796500;
-  display: block;
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  margin-bottom: 5px;
-  text-transform: uppercase;
-}
-
-.advisor-facts {
+/* AI 분석 실행과 결과 상태 */
+.allocation-heading-actions {
   align-items: center;
-  border-top: 1px solid rgba(77, 68, 54, 0.12);
   display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  margin-top: 14px;
-  padding-top: 12px;
+  gap: 9px;
 }
 
-.advisor-facts > span {
-  color: #5f584f;
-  font-size: 11px;
-  font-weight: 800;
-  margin-right: 5px;
-}
-
-.advisor-facts small {
-  background: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(77, 68, 54, 0.1);
-  border-radius: 999px;
-  color: #615a51;
-  padding: 5px 9px;
-}
-
-.advisor-adjustments {
-  border-top: 1px solid rgba(77, 68, 54, 0.12);
-  margin-top: 12px;
-  padding-top: 10px;
-}
-
-.advisor-adjustments summary {
-  cursor: pointer;
+.ai-inline-status {
+  color: #746d63;
   font-size: 12px;
-  font-weight: 800;
+  margin: -8px 0 20px;
 }
 
-.advisor-adjustments p {
-  color: #6b6258;
-  font-size: 12px;
-  margin: 7px 0 0;
+.ai-inline-status::before {
+  color: #c6a000;
+  content: "●";
+  font-size: 8px;
+  margin-right: 7px;
+}
+
+.ai-inline-status.validated::before {
+  color: #16815b;
+}
+
+.ai-inline-status.adjusted::before {
+  color: #b78300;
+}
+
+.ai-inline-status.fallback::before {
+  color: #bd6c27;
 }
 
 .donut-comparison {
@@ -2070,11 +1999,12 @@ footer p {
 }
 
 @media (max-width: 700px) {
-  .advisor-status-main {
+  .allocation-heading-actions {
+    align-items: stretch;
     flex-direction: column;
   }
 
-  .advisor-status-main .ai-run-button {
+  .allocation-heading-actions .ai-run-button {
     width: 100%;
   }
 

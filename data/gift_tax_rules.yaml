@@ -1,5 +1,5 @@
 {
-  "demo_label": "프로토타입용 증여세 추정 규칙",
+  "demo_label": "증여세 추정 기준",
   "effective_date": "2026-07-30",
   "last_verified_at": "2026-07-30",
   "lookback_years": 10,
@@ -22,5 +22,5 @@
     "source:gift-tax-law-aggregation",
     "source:nts-gift-tax-filing"
   ],
-  "disclaimer": "직계존속의 일반적인 현금 증여를 단순화한 프로토타입 추정치입니다. 실제 신고 전 세무 전문가 확인이 필요합니다."
+  "disclaimer": "직계존속의 일반적인 현금 증여를 단순화한 추정치입니다. 실제 신고 전 세무 전문가 확인이 필요합니다."
 }
