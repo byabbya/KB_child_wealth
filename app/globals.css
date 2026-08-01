@@ -2179,27 +2179,28 @@ body {
 }
 
 .hero {
-  border: 1px solid var(--line);
-  border-top: 4px solid var(--kb-yellow);
+  border: 0;
   border-radius: 16px;
-  background: #fff;
-  box-shadow: none;
-  color: var(--ink);
+  background:
+    radial-gradient(circle at 86% 8%, rgba(255, 204, 0, 0.82), transparent 20rem),
+    linear-gradient(125deg, #2d2a26 0%, #4c463e 62%, #6b5c37 100%);
+  box-shadow: 0 12px 30px rgba(45, 42, 38, 0.16);
+  color: #fff;
 }
 
 .hero::after {
-  display: none;
+  display: block;
 }
 
 .child-selector {
-  color: var(--ink);
+  color: #fff;
 }
 
 .child-selector small,
 .as-of,
 .hero .eyebrow,
 .goal-progress p {
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.68);
 }
 
 .child-selector small {
@@ -2220,31 +2221,31 @@ body {
 }
 
 .hero h1 {
-  color: #171717;
+  color: #fff;
   font-size: clamp(36px, 5vw, 50px);
 }
 
 .progress-track {
-  background: #e9eaec;
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .hero-metrics {
-  border: 0;
-  background: #f7f7f8;
-  backdrop-filter: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(22, 20, 18, 0.25);
+  backdrop-filter: blur(10px);
 }
 
 .hero-metrics div {
-  border-color: #e2e3e5;
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .hero-metrics span {
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.62);
   font-size: 12px;
 }
 
 .hero-metrics strong {
-  color: #202124;
+  color: #fff;
   font-size: 15px;
 }
 
@@ -2669,21 +2670,24 @@ body {
 
   .hero-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1px;
+    gap: 0;
     padding: 0;
     overflow: hidden;
-    background: #e5e6e8;
+    background: rgba(22, 20, 18, 0.25);
   }
 
   .hero-metrics div {
     min-height: 70px;
     padding: 13px;
     border: 0;
-    background: #f7f7f8;
+    border-right: 1px solid rgba(255, 255, 255, 0.12);
+    background: transparent;
   }
 
   .hero-metrics div:last-child {
     grid-column: 1 / -1;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    border-right: 0;
   }
 
   .hero-metrics span {
@@ -2734,13 +2738,21 @@ body {
     z-index: 20;
     top: 58px;
     gap: 22px;
+    overflow-x: auto;
     margin: 12px -14px 14px;
     padding: 0 14px;
     background: #f4f5f6;
+    scrollbar-width: none;
+  }
+
+  .section-tabs::-webkit-scrollbar {
+    display: none;
   }
 
   .section-tabs button {
+    flex: 0 0 auto;
     font-size: 15px;
+    white-space: nowrap;
   }
 
   .panel {
@@ -2893,12 +2905,21 @@ body {
   }
 
   .portfolio-specification tr:not(.specification-detail-row) {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    padding: 14px 10px;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 8px 6px;
+    margin: 0;
+    padding: 14px 12px;
+    border-top: 10px solid #f4f5f6;
+    background: #fff;
+  }
+
+  .portfolio-specification tr:first-child {
+    border-top: 0;
   }
 
   .portfolio-specification td {
-    padding: 8px 6px;
+    min-width: 0;
+    padding: 9px;
     font-size: 14px;
   }
 
@@ -2909,10 +2930,57 @@ body {
   }
 
   .portfolio-specification td:first-child,
-  .portfolio-specification td:nth-child(5),
+  .portfolio-specification td:nth-child(5) {
+    grid-column: 1 / -1;
+  }
+
+  .portfolio-specification td:nth-child(2),
+  .portfolio-specification td:nth-child(3),
+  .portfolio-specification td:nth-child(4) {
+    grid-column: span 2;
+    border-radius: 10px;
+    background: #f7f7f8;
+  }
+
   .portfolio-specification td:nth-child(6),
   .portfolio-specification td:nth-child(7) {
-    grid-column: 1 / -1;
+    grid-column: span 3;
+    border-top: 1px solid #eceef0;
+    padding-top: 11px;
+  }
+
+  .portfolio-specification td:nth-child(5) {
+    margin-top: 2px;
+    padding: 12px 9px;
+    border-top: 1px solid #eceef0;
+  }
+
+  .portfolio-specification td:nth-child(7) {
+    text-align: right;
+  }
+
+  .portfolio-specification td:nth-child(7)::before {
+    text-align: right;
+  }
+
+  .portfolio-specification .asset-toggle {
+    min-height: 34px;
+    font-size: 16px;
+  }
+
+  .portfolio-specification .product-name-cell {
+    overflow-wrap: anywhere;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .portfolio-specification .provider {
+    margin-bottom: 4px;
+    font-size: 11px;
+  }
+
+  .portfolio-specification .action-badge {
+    font-size: 12px;
   }
 
   .portfolio-specification td > small,

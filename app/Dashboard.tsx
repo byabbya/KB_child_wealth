@@ -30,6 +30,7 @@ const INVESTMENT_TAX_RULES = prototypeCatalog.investmentTaxRules as Record<strin
 type AssetPreference = "savings" | "deposit" | "stock" | "bond";
 type StrategyPreference = "etf" | "individual" | "us" | "domestic";
 type ProductFilter = "all" | "bank" | "etf" | "fund" | "stock";
+type ResultTab = "portfolio" | "products" | "specification" | "rebalance";
 
 const ASSET_PREFERENCE_LABELS: Record<AssetPreference, string> = {
   savings: "적금",
@@ -45,7 +46,7 @@ const STRATEGY_PREFERENCE_LABELS: Record<StrategyPreference, string> = {
 };
 
 type PrototypeState = {
-  activeTab: "portfolio" | "rebalance";
+  activeTab: ResultTab;
   horizonYears: number;
   monthlyContribution: number;
   assetRanking: AssetPreference[];
@@ -125,7 +126,10 @@ function migrateStoredState(value: unknown): PrototypeState {
   const strategyKeys: StrategyPreference[] = ["etf", "individual", "us", "domestic"];
   return {
     activeTab:
-      stored.activeTab === "portfolio" || stored.activeTab === "rebalance"
+      stored.activeTab === "portfolio" ||
+      stored.activeTab === "products" ||
+      stored.activeTab === "specification" ||
+      stored.activeTab === "rebalance"
         ? stored.activeTab
         : initialState.activeTab,
     horizonYears:
@@ -482,6 +486,18 @@ export default function Dashboard() {
             목표 포트폴리오
           </button>
           <button
+            className={state.activeTab === "products" ? "active" : ""}
+            onClick={() => setState((current) => ({ ...current, activeTab: "products" }))}
+          >
+            추천 상품
+          </button>
+          <button
+            className={state.activeTab === "specification" ? "active" : ""}
+            onClick={() => setState((current) => ({ ...current, activeTab: "specification" }))}
+          >
+            포트폴리오 명세서
+          </button>
+          <button
             className={state.activeTab === "rebalance" ? "active" : ""}
             onClick={() => setState((current) => ({ ...current, activeTab: "rebalance" }))}
           >
@@ -490,8 +506,7 @@ export default function Dashboard() {
         </nav>
 
         {state.activeTab === "portfolio" ? (
-          <>
-            <section className="panel allocation-panel">
+          <section className="panel allocation-panel">
               <div className="section-heading">
                 <div>
                   <span className="eyebrow">현재 vs AI 추천</span>
@@ -534,44 +549,47 @@ export default function Dashboard() {
                 focusedAssetClass={focusedAssetClass}
                 setFocusedAssetClass={setFocusedAssetClass}
               />
-            </section>
+          </section>
+        ) : null}
 
-            <RecommendedProducts
+        {state.activeTab === "products" ? (
+          <RecommendedProducts
+            plan={effectivePlan}
+            filter={productFilter}
+            setFilter={setProductFilter}
+            openMock={openMock}
+          />
+        ) : null}
+
+        {state.activeTab === "specification" ? (
+          <section className="panel specification-section">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">현재·추천·조치를 한 행에서 비교</span>
+                <h2>포트폴리오 명세서</h2>
+              </div>
+              <span className="count-badge">{effectivePlan.recommendations.length}개 KB 후보</span>
+            </div>
+            <PortfolioSpecification
               plan={effectivePlan}
-              filter={productFilter}
-              setFilter={setProductFilter}
+              expandedAssetClass={expandedAssetClass}
+              setExpandedAssetClass={setExpandedAssetClass}
+              focusedAssetClass={focusedAssetClass}
+              setFocusedAssetClass={setFocusedAssetClass}
               openMock={openMock}
             />
-
-            <section className="panel specification-section">
-              <div className="section-heading">
-                <div>
-                  <span className="eyebrow">현재·추천·조치를 한 행에서 비교</span>
-                  <h2>포트폴리오 명세서</h2>
-                </div>
-                <span className="count-badge">{effectivePlan.recommendations.length}개 KB 후보</span>
+            {effectivePlan.limitations.length > 0 ? (
+              <div className="limitations">
+                <strong>KB 상품만으로 충족하지 못한 항목</strong>
+                {effectivePlan.limitations.map((item: { assetClass: string; message: string }) => (
+                  <p key={item.assetClass}>{item.message}</p>
+                ))}
               </div>
-              <PortfolioSpecification
-                plan={effectivePlan}
-                expandedAssetClass={expandedAssetClass}
-                setExpandedAssetClass={setExpandedAssetClass}
-                focusedAssetClass={focusedAssetClass}
-                setFocusedAssetClass={setFocusedAssetClass}
-                openMock={openMock}
-              />
-              {effectivePlan.limitations.length > 0 ? (
-                <div className="limitations">
-                  <strong>KB 상품만으로 충족하지 못한 항목</strong>
-                  {effectivePlan.limitations.map((item: { assetClass: string; message: string }) => (
-                    <p key={item.assetClass}>{item.message}</p>
-                  ))}
-                </div>
-              ) : null}
-            </section>
-          </>
-        ) : (
-          <RebalanceView plan={effectivePlan} />
-        )}
+            ) : null}
+          </section>
+        ) : null}
+
+        {state.activeTab === "rebalance" ? <RebalanceView plan={effectivePlan} /> : null}
 
         <section className="panel performance-panel">
           <div className="section-heading">
@@ -878,7 +896,7 @@ function RecommendedProducts({
         })}
       </div>
       {filter === "all" && filtered.length > visible.length ? (
-        <p className="recommended-products-note">자산별 전체 후보와 세부 조건은 아래 포트폴리오 명세서에서 확인할 수 있어요.</p>
+        <p className="recommended-products-note">자산별 전체 후보와 세부 조건은 포트폴리오 명세서 탭에서 확인할 수 있어요.</p>
       ) : null}
     </section>
   );
