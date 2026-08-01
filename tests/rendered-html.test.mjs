@@ -24,9 +24,10 @@ test("renders the KB child asset management dashboard", async () => {
   assert.match(html, /AI 포트폴리오 분석/);
   assert.match(html, /현재 포트폴리오/);
   assert.match(html, /기본 추천 포트폴리오/);
-  assert.match(html, /10년 증여재산공제 시뮬레이션/);
-  assert.match(html, /고정 샘플 시나리오/);
-  assert.match(html, /실제 자녀·계좌 정보를 조회하거나 연결하지 않습니다/);
+  assert.match(html, /AI 추천 근거/);
+  assert.match(html, /현재 입력을 바탕으로 구성한 기본 추천의 근거입니다/);
+  assert.doesNotMatch(html, /10년 증여재산공제 시뮬레이션|추가 증여 시뮬레이션/);
+  assert.doesNotMatch(html, /샘플 자산 데이터|고정 시나리오|실제 자녀·계좌 정보를 조회하거나 연결하지 않습니다/);
   assert.match(html, /KB 적금 대비 성과 점검/);
   assert.doesNotMatch(html, /보호자 승인|보호자 최종 확인|승인 취소/);
   assert.doesNotMatch(html, /프로토타입|PortfolioAdvisorAgent|규칙 엔진/);

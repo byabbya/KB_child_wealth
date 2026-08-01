@@ -9,6 +9,7 @@ import {
   generatePlan,
 } from "@/lib/engine.mjs";
 import { StaticProductLinkProvider } from "@/lib/providers";
+import { buildRecommendationRationale } from "@/lib/recommendation-rationale.mjs";
 
 const STORAGE_KEY = "kb-child-portfolio-prototype:v4";
 const PREVIOUS_STORAGE_KEY = "kb-child-portfolio-prototype:v3";
@@ -168,19 +169,13 @@ function providerClass(provider: string) {
 export default function Dashboard() {
   const [state, setState] = useState<PrototypeState>(initialState);
   const [hydrated, setHydrated] = useState(false);
-  const [modal, setModal] = useState<null | "goal" | "gift" | "assets" | "mock">(null);
+  const [modal, setModal] = useState<null | "goal" | "assets" | "mock">(null);
   const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(null);
   const [aiAdvice, setAiAdvice] = useState<AiAdvice | null>(null);
   const [aiAdviceSignature, setAiAdviceSignature] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [expandedAssetClass, setExpandedAssetClass] = useState<string | null>(null);
   const [focusedAssetClass, setFocusedAssetClass] = useState<string | null>(null);
-  const [giftForm, setGiftForm] = useState({
-    date: initialState.proposedGift.date,
-    amount: String(initialState.proposedGift.amount),
-    donorRelationship: initialState.proposedGift.donorRelationship,
-    memo: initialState.proposedGift.memo,
-  });
   const linkProvider = useMemo(() => new StaticProductLinkProvider(), []);
 
   useEffect(() => {
@@ -244,6 +239,9 @@ export default function Dashboard() {
   });
 
   const currentAdvice = aiAdviceSignature === aiInputSignature ? aiAdvice : null;
+  const hasStaleAdvice = Boolean(
+    aiAdvice && aiAdviceSignature && aiAdviceSignature !== aiInputSignature,
+  );
 
   const effectivePlan = useMemo(
     () =>
@@ -259,7 +257,6 @@ export default function Dashboard() {
         : plan,
     [currentAdvice, data, plan],
   );
-  const giftTotal = data.giftHistory.reduce((sum, item) => sum + item.amount, 0);
   const targetProgress = Math.min(100, (plan.current.total / child.goalAmount) * 100);
 
   function openMock(
@@ -269,26 +266,6 @@ export default function Dashboard() {
     const link = linkProvider.getLink(String(item?.id ?? "KB-PRODUCT"), action);
     setSelectedItem({ ...item, mockLink: link });
     setModal("mock");
-  }
-
-  function simulateGift(event: React.FormEvent) {
-    event.preventDefault();
-    const amount = Number(giftForm.amount);
-    if (!Number.isFinite(amount) || amount <= 0) return;
-    setState((current) => ({
-      ...current,
-      proposedGift: {
-        date: giftForm.date,
-        amount,
-        donorId: giftForm.donorRelationship === "모" ? "parent-mother" : "parent-father",
-        donorGroupId: giftForm.donorRelationship === "조부모" ? "grandparent-couple" : "parent-couple",
-        donorRelationship: giftForm.donorRelationship,
-        memo: giftForm.memo || "추가 현금 증여",
-      },
-    }));
-    setAiAdvice(null);
-    setAiAdviceSignature(null);
-    setModal(null);
   }
 
   async function requestAiAdvice() {
@@ -314,7 +291,7 @@ export default function Dashboard() {
           "세금·수수료 규칙",
         ],
         alternatives: ["신규 입금 배분 조정", "예·적금 만기 후 재배분"],
-        assumptions: ["샘플 자산 데이터"],
+        assumptions: ["샘플 데이터"],
         summary: "선호 순위와 금융 기준을 적용한 기본 포트폴리오입니다.",
       };
       const response = await fetch("/api/portfolio-advice", {
@@ -382,13 +359,33 @@ export default function Dashboard() {
 
   const aiResultLabel = aiLoading
     ? "AI가 포트폴리오를 분석하고 있습니다."
-    : currentAdvice?.status === "validated"
-      ? `${currentAdvice.provider === "gemini" ? "Gemini" : "Ollama"} AI 분석 결과가 반영되었습니다.`
-      : currentAdvice?.status === "adjusted"
-        ? "AI 분석 결과를 금융 기준에 맞게 조정하여 반영했습니다."
-        : currentAdvice?.status === "fallback"
-          ? "AI 연결이 원활하지 않아 기본 추천을 표시합니다."
-          : "현재는 선호와 투자기간을 반영한 기본 추천입니다.";
+    : hasStaleAdvice
+      ? "입력 내용이 변경되어 AI 재분석이 필요합니다."
+      : currentAdvice?.status === "validated"
+        ? `${currentAdvice.provider === "gemini" ? "Gemini" : "Ollama"} AI 분석 결과가 반영되었습니다.`
+        : currentAdvice?.status === "adjusted"
+          ? "AI 분석 결과를 금융 기준에 맞게 조정하여 반영했습니다."
+          : currentAdvice?.status === "fallback"
+            ? "AI 연결이 원활하지 않아 기본 추천을 표시합니다."
+            : "현재는 선호와 투자기간을 반영한 기본 추천입니다.";
+  const recommendationRationale = buildRecommendationRationale({
+    advice: currentAdvice,
+    loading: aiLoading,
+    stale: hasStaleAdvice,
+    context: {
+      primaryAssetLabel: ASSET_PREFERENCE_LABELS[state.assetRanking[0]],
+      equityStyle:
+        state.strategyRanking.indexOf("etf") < state.strategyRanking.indexOf("individual")
+          ? "ETF 중심"
+          : "개별종목 중심",
+      marketPreference:
+        state.strategyRanking.indexOf("us") < state.strategyRanking.indexOf("domestic")
+          ? "미국시장"
+          : "국내시장",
+      horizonYears: state.horizonYears,
+      heldProductCount: plan.recommendations.filter((item) => item.held).length,
+    },
+  });
 
   return (
     <main className="app-shell">
@@ -448,8 +445,8 @@ export default function Dashboard() {
                 <strong>{compactCurrency(child.goalAmount)}</strong>
               </div>
               <div>
-                <span>10년 증여 합계</span>
-                <strong>{compactCurrency(giftTotal)}</strong>
+                <span>월 저축 계획</span>
+                <strong>{compactCurrency(state.monthlyContribution)}</strong>
               </div>
               <div>
                 <span>선호 성향</span>
@@ -458,16 +455,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="connection-row scenario-row">
-            <div className="connection-copy">
-              <span className="status-dot connected" />
-              <div>
-                <strong>샘플 자산 데이터</strong>
-                <span>실제 자녀·계좌 정보를 조회하거나 연결하지 않습니다.</span>
-              </div>
-            </div>
-            <span className="sample-badge">고정 시나리오</span>
-          </div>
         </section>
 
         <section className="quick-actions" aria-label="자녀 자산관리 바로가기">
@@ -479,22 +466,11 @@ export default function Dashboard() {
             <span className="action-icon">◎</span>
             <span>목표·성향<br />다시 설정</span>
           </button>
-          <button onClick={() => setModal("gift")}>
-            <span className="action-icon">＋</span>
-            <span>추가 증여<br />시뮬레이션</span>
-          </button>
           <button onClick={() => setState((current) => ({ ...current, activeTab: "rebalance" }))}>
             <span className="action-icon">⇄</span>
             <span>리밸런싱<br />제안 확인</span>
           </button>
         </section>
-
-        <GiftTaxSummary
-          result={plan.giftTax}
-          history={data.giftHistory}
-          proposedGift={state.proposedGift}
-          openSimulator={() => setModal("gift")}
-        />
 
         <nav className="section-tabs" aria-label="자산관리 결과 메뉴">
           <button
@@ -528,7 +504,7 @@ export default function Dashboard() {
                   </button>
                 </div>
               </div>
-              <p className={`ai-inline-status ${currentAdvice?.status ?? "idle"}`}>{aiResultLabel}</p>
+              <p className={`ai-inline-status ${hasStaleAdvice ? "stale" : currentAdvice?.status ?? "idle"}`}>{aiResultLabel}</p>
               <div className="donut-comparison">
                 <PortfolioDonut
                   title="현재 포트폴리오"
@@ -538,13 +514,16 @@ export default function Dashboard() {
                   focusedAssetClass={focusedAssetClass}
                 />
                 <div className="donut-arrow" aria-hidden="true">→</div>
-                <PortfolioDonut
-                  title={currentAdvice && currentAdvice.status !== "fallback" ? "AI 추천 포트폴리오" : "기본 추천 포트폴리오"}
-                  weights={effectivePlan.target}
-                  centerTop={currentAdvice && currentAdvice.status !== "fallback" ? "AI 추천" : "기본 추천"}
-                  centerValue="100%"
-                  focusedAssetClass={focusedAssetClass}
-                />
+                <div className="recommended-portfolio-column">
+                  <PortfolioDonut
+                    title={currentAdvice && currentAdvice.status !== "fallback" ? "AI 추천 포트폴리오" : "기본 추천 포트폴리오"}
+                    weights={effectivePlan.target}
+                    centerTop={currentAdvice && currentAdvice.status !== "fallback" ? "AI 추천" : "기본 추천"}
+                    centerValue="100%"
+                    focusedAssetClass={focusedAssetClass}
+                  />
+                  <RecommendationRationale rationale={recommendationRationale} />
+                </div>
               </div>
               <div className="donut-legend" aria-label="자산군 색상과 추천 비중">
                 {ASSET_CLASSES.filter((key: string) => effectivePlan.target[key] > 0).map((key: string) => (
@@ -580,7 +559,9 @@ export default function Dashboard() {
               {effectivePlan.limitations.length > 0 ? (
                 <div className="limitations">
                   <strong>KB 상품만으로 충족하지 못한 항목</strong>
-                  {effectivePlan.limitations.map((item) => <p key={item.assetClass}>{item.message}</p>)}
+                  {effectivePlan.limitations.map((item: { assetClass: string; message: string }) => (
+                    <p key={item.assetClass}>{item.message}</p>
+                  ))}
                 </div>
               ) : null}
             </section>
@@ -654,33 +635,6 @@ export default function Dashboard() {
             {modal === "goal" ? (
               <GoalForm state={state} setState={setState} close={() => setModal(null)} />
             ) : null}
-            {modal === "gift" ? (
-              <form onSubmit={simulateGift}>
-                <span className="eyebrow">원본 샘플은 변경하지 않음</span>
-                <h2>추가 증여 시뮬레이션</h2>
-                <label>증여일<input type="date" value={giftForm.date} onChange={(event) => setGiftForm({ ...giftForm, date: event.target.value })} /></label>
-                <label>금액<input type="number" min="1" value={giftForm.amount} onChange={(event) => setGiftForm({ ...giftForm, amount: event.target.value })} /></label>
-                <label>
-                  증여자 관계
-                  <select
-                    value={giftForm.donorRelationship}
-                    onChange={(event) =>
-                      setGiftForm({ ...giftForm, donorRelationship: event.target.value })
-                    }
-                  >
-                    <option value="부">부</option>
-                    <option value="모">모</option>
-                    <option value="조부모">조부모</option>
-                  </select>
-                </label>
-                <label>메모<input value={giftForm.memo} onChange={(event) => setGiftForm({ ...giftForm, memo: event.target.value })} /></label>
-                <p className="form-note">
-                  2천만원은 일률적인 비과세 한도가 아니라 직계존속 증여재산공제입니다.
-                  실제 신고 여부와 세액은 별도로 확인해야 합니다.
-                </p>
-                <button className="primary-button full-button" type="submit">세금 시뮬레이션 적용</button>
-              </form>
-            ) : null}
             {modal === "assets" ? <AssetsList plan={plan} data={data} /> : null}
             {modal === "mock" ? (
               <div className="mock-modal">
@@ -701,69 +655,6 @@ export default function Dashboard() {
         </div>
       ) : null}
     </main>
-  );
-}
-
-function GiftTaxSummary({
-  result,
-  history,
-  proposedGift,
-  openSimulator,
-}: {
-  result: ReturnType<typeof generatePlan>["giftTax"];
-  history: typeof prototypeCatalog.data.giftHistory;
-  proposedGift: PrototypeState["proposedGift"];
-  openSimulator: () => void;
-}) {
-  if (!result.applicable) return null;
-  return (
-    <section className="panel gift-tax-panel">
-      <div className="section-heading">
-        <div>
-          <span className="eyebrow">최근 10년 증여 내역 기준</span>
-          <h2>10년 증여재산공제 시뮬레이션</h2>
-        </div>
-        <button className="secondary-button" onClick={openSimulator}>금액 바꾸기</button>
-      </div>
-      <div className="gift-scenario-line">
-        <strong>기존 {history.length}건 {compactCurrency(result.previousTotal)}</strong>
-        <span>+</span>
-        <strong>{proposedGift.donorRelationship} 추가 {compactCurrency(result.proposedAmount)}</strong>
-        <span>=</span>
-        <strong>{compactCurrency(result.combinedTotal)}</strong>
-      </div>
-      <div className="tax-metric-grid">
-        <div>
-          <span>추가 전 잔여 공제</span>
-          <strong>{compactCurrency(result.remainingDeductionBefore)}</strong>
-        </div>
-        <div>
-          <span>추정 과세표준</span>
-          <strong>{compactCurrency(result.taxableBase)}</strong>
-        </div>
-        <div>
-          <span>기본 산출세액</span>
-          <strong>{compactCurrency(result.calculatedTax)}</strong>
-        </div>
-        <div>
-          <span>3% 신고공제 가정 후</span>
-          <strong>{compactCurrency(result.estimatedTaxAfterCredit)}</strong>
-        </div>
-        <div>
-          <span>신고기한</span>
-          <strong>{result.filingDueDate}</strong>
-        </div>
-      </div>
-      <div className="tax-explanation">
-        <strong>“2천만원 비과세”가 아니라 증여재산공제를 적용한 추정 결과입니다.</strong>
-        <p>
-          동일 부모·배우자 그룹의 최근 10년 증여를 합산했습니다. 현재 사례의 선행 증여액은{" "}
-          {compactCurrency(result.sameDonorPriorTotal)}이며 합산과세 기준을{" "}
-          {result.aggregationApplies ? "충족합니다" : "충족하지 않습니다"}.
-        </p>
-        <small>{result.disclaimer}</small>
-      </div>
-    </section>
   );
 }
 
@@ -816,6 +707,37 @@ function PortfolioDonut({
         </div>
       </div>
     </figure>
+  );
+}
+
+function RecommendationRationale({
+  rationale,
+}: {
+  rationale: ReturnType<typeof buildRecommendationRationale>;
+}) {
+  return (
+    <section
+      className={`recommendation-rationale ${rationale.state}`}
+      aria-labelledby="recommendation-rationale-title"
+      aria-live="polite"
+    >
+      <div className="recommendation-rationale-heading">
+        <span className="rationale-spark" aria-hidden="true">✦</span>
+        <h3 id="recommendation-rationale-title">AI 추천 근거</h3>
+      </div>
+      <p>{rationale.intro}</p>
+      <ul>
+        {rationale.reasons.slice(0, 3).map((reason: string) => (
+          <li key={reason}>{reason}</li>
+        ))}
+      </ul>
+      {rationale.adjustment ? (
+        <div className="rationale-adjustment">
+          <strong>정책 보정</strong>
+          <span>{rationale.adjustment}</span>
+        </div>
+      ) : null}
+    </section>
   );
 }
 

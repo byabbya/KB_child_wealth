@@ -24,6 +24,7 @@ import {
   PortfolioPolicyValidator,
   runPortfolioAdvisor,
 } from "../lib/portfolio-agent.mjs";
+import { buildRecommendationRationale } from "../lib/recommendation-rationale.mjs";
 
 const root = new URL("../", import.meta.url);
 const [
@@ -167,7 +168,7 @@ test("unverified preferential conditions never apply the maximum rate", () => {
 
 test("fixed scenario always includes bank and securities holdings without connection state", () => {
   const aggregated = aggregateHoldings(data, banks, securities);
-  assert.equal(aggregated.total, 36_100_000);
+  assert.equal(aggregated.total, 10_000_000);
   const plan = buildPlan();
   assert.ok(plan.recommendations.some((item) => item.provider === "KB증권"));
   assert.ok(!plan.limitations.some((item) => /연결/.test(item.message)));
@@ -402,4 +403,65 @@ test("agent uses deterministic fallback when Ollama is unavailable", async () =>
   assert.equal(result.status, "fallback");
   assert.deepEqual(result.proposal.allocations, plan.target);
   assert.match(result.message, /규칙 기반 대체/);
+});
+
+test("recommendation rationale distinguishes baseline, AI, adjustment, fallback, and stale states", () => {
+  const rationaleContext = {
+    primaryAssetLabel: "적금",
+    equityStyle: "ETF 중심",
+    marketPreference: "미국시장",
+    horizonYears: 8,
+    heldProductCount: 3,
+  };
+  const baseline = buildRecommendationRationale({ advice: null, context: rationaleContext });
+  assert.equal(baseline.state, "baseline");
+  assert.equal(baseline.reasons.length, 3);
+  assert.match(baseline.reasons.join(" "), /적금.*8년/);
+  assert.match(baseline.reasons.join(" "), /ETF 중심.*미국시장/);
+  assert.match(baseline.reasons.join(" "), /보유.*3개/);
+
+  const validated = buildRecommendationRationale({
+    context: rationaleContext,
+    advice: {
+      status: "validated",
+      proposal: { summary: "적금 선호를 중심으로 장기 포트폴리오를 구성했어요." },
+      consideredFactors: ["선호 순위", "8년 투자기간", "세금·수수료 규칙", "KB 상품 적합성"],
+      adjustments: [],
+    },
+  });
+  assert.equal(validated.state, "validated");
+  assert.equal(validated.reasons.length, 3);
+  assert.match(validated.reasons[0], /적금 선호/);
+  assert.equal(new Set(validated.reasons).size, validated.reasons.length);
+
+  const adjusted = buildRecommendationRationale({
+    context: rationaleContext,
+    advice: {
+      status: "adjusted",
+      proposal: { summary: "AI 원안을 안전 기준에 맞게 조정했어요." },
+      consideredFactors: ["투자기간"],
+      adjustments: ["3~5년 투자기간의 성장자산 합계가 45%를 초과합니다."],
+    },
+  });
+  assert.match(adjusted.adjustment, /ETF·주식 비중.*안전 범위/);
+
+  const fallback = buildRecommendationRationale({
+    context: rationaleContext,
+    advice: {
+      status: "fallback",
+      proposal: { summary: "AI가 작성한 것처럼 보이면 안 되는 문장" },
+      consideredFactors: ["AI 요소"],
+      adjustments: [],
+    },
+  });
+  assert.match(fallback.intro, /AI 연결 실패/);
+  assert.doesNotMatch(fallback.reasons.join(" "), /AI가 작성/);
+
+  const stale = buildRecommendationRationale({
+    advice: null,
+    stale: true,
+    context: rationaleContext,
+  });
+  assert.equal(stale.state, "stale");
+  assert.match(stale.intro, /다시 분석/);
 });

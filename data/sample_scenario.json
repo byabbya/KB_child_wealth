@@ -19,7 +19,7 @@
       "provider": "KB국민은행",
       "productId": "KB-YOUNG-ACCOUNT",
       "accountName": "생활·대기자금",
-      "balance": 5400000,
+      "balance": 1200000,
       "maturityDate": null,
       "earlyTerminationLoss": 0
     },
@@ -29,9 +29,9 @@
       "provider": "KB국민은행",
       "productId": "KB-YOUNG-SAVINGS",
       "accountName": "꿈 저축",
-      "balance": 7200000,
+      "balance": 2400000,
       "maturityDate": "2026-10-12",
-      "earlyTerminationLoss": 185000
+      "earlyTerminationLoss": 62000
     },
     {
       "accountId": "bank-003",
@@ -39,9 +39,9 @@
       "provider": "KB국민은행",
       "productId": "KB-STAR-DEPOSIT",
       "accountName": "교육비 정기예금",
-      "balance": 10000000,
+      "balance": 2500000,
       "maturityDate": "2027-04-20",
-      "earlyTerminationLoss": 276000
+      "earlyTerminationLoss": 69000
     },
     {
       "accountId": "bank-004",
@@ -49,7 +49,7 @@
       "provider": "KB국민은행",
       "productId": "KB-YOUTH-LEGACY",
       "accountName": "기존 청소년통장",
-      "balance": 1100000,
+      "balance": 300000,
       "maturityDate": null,
       "earlyTerminationLoss": 0
     }
@@ -60,8 +60,8 @@
       "childId": "child-minseo",
       "provider": "KB증권",
       "accountName": "자녀 종합위탁",
-      "cashBalance": 1200000,
-      "pendingDividends": 120000
+      "cashBalance": 500000,
+      "pendingDividends": 30000
     }
   ],
   "securitiesHoldings": [
@@ -69,25 +69,25 @@
       "holdingId": "holding-001",
       "accountId": "sec-001",
       "assetId": "KBSEC-KR-ETF-200",
-      "quantity": 122,
-      "marketValue": 5100000,
-      "costBasis": 4720000
+      "quantity": 31,
+      "marketValue": 1300000,
+      "costBasis": 1180000
     },
     {
       "holdingId": "holding-002",
       "accountId": "sec-001",
       "assetId": "KBSEC-US-ETF-VT",
-      "quantity": 19,
-      "marketValue": 4300000,
-      "costBasis": 3950000
+      "quantity": 5,
+      "marketValue": 1200000,
+      "costBasis": 1100000
     },
     {
       "holdingId": "holding-003",
       "accountId": "sec-001",
       "assetId": "KBSEC-US-STOCK-AAPL",
-      "quantity": 7,
-      "marketValue": 1800000,
-      "costBasis": 1650000
+      "quantity": 2,
+      "marketValue": 600000,
+      "costBasis": 550000
     }
   ],
   "giftHistory": [
@@ -123,9 +123,9 @@
     }
   ],
   "cashFlows": {
-    "newBankDeposit": 500000,
+    "newBankDeposit": 200000,
     "maturedDeposits": 0,
-    "securitiesCashAndDividends": 1320000
+    "securitiesCashAndDividends": 530000
   },
   "performance": {
     "periodMonths": 12,
