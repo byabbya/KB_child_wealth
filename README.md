@@ -54,21 +54,7 @@ KB스타뱅킹 내부의 자녀 자산관리 메뉴를 가정해 구현했습니
 
 ## AI 포트폴리오 추천 플로우차트
 
-<img width="1853" height="345" alt="KakaoTalk_20260802_125603053" src="https://github.com/user-attachments/assets/27f54863-44a1-4100-b8ff-c8ea69c7f9d2" />
-
-
-```mermaid
-flowchart LR
-    UI["선호·목표·투자기간 입력"] --> API["Next.js API Route"]
-    API --> Agent["포트폴리오 에이전트"]
-    Agent --> Facts["사용자·시장·정책 사실 조회"]
-    Facts --> LLM["LLM 자산배분 제안"]
-    LLM --> Rules["금융 규칙 검증·보정"]
-    Rules --> Match["KB 상품 매칭"]
-    Match --> Result["포트폴리오·리밸런싱"]
-    Rules -->|"응답 오류 또는 검증 실패"| Fallback["규칙 기반 기준안"]
-    Fallback --> Result
-```
+<img width="1853" height="345" alt="kb_AI플로우차트" src="https://github.com/user-attachments/assets/d80ad1e8-2e91-40f4-93a7-f550196c5ec6" />
 
 `PortfolioAdvisorAgent`는 서버에 등록된 읽기 전용 도구로 사용자 조건, 시장 자료, 정책 한도와 상품 후보를 조회합니다. LLM은 이 사실을 바탕으로 8개 자산군의 목표 비중과 추천 이유를 작성합니다. 상품 가입이나 거래를 실행하는 도구는 제공하지 않습니다.
 
