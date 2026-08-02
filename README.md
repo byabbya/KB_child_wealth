@@ -54,6 +54,9 @@ KB스타뱅킹 내부의 자녀 자산관리 메뉴를 가정해 구현했습니
 
 ## AI 포트폴리오 추천 플로우차트
 
+<img width="1853" height="345" alt="KakaoTalk_20260802_125603053" src="https://github.com/user-attachments/assets/27f54863-44a1-4100-b8ff-c8ea69c7f9d2" />
+
+
 ```mermaid
 flowchart LR
     UI["선호·목표·투자기간 입력"] --> API["Next.js API Route"]
