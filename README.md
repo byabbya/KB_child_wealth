@@ -2,8 +2,6 @@
 
 부모가 자녀 명의의 KB국민은행 예·적금과 KB증권 투자자산을 함께 확인하고, 투자기간과 선호에 맞는 장기 포트폴리오를 제안받는 자녀 자산관리 서비스입니다.
 
-[서비스 데모 보기](https://kb-child-wealth-2026.vbibbi507.chatgpt.site)
-
 ## 왜 만들었나
 
 자녀 금융서비스는 계좌 개설이나 단일 상품 가입에서 끝나는 경우가 많습니다. 이 프로젝트는 이미 보유한 예·적금과 투자자산을 하나의 목표 아래에서 관리하는 흐름에 집중했습니다.
@@ -59,7 +57,6 @@ flowchart LR
 - Frontend: Next.js, React, TypeScript
 - Backend: Next.js API Route, Node.js
 - AI: Google Gemini API (`gemini-3.5-flash`)
-- Deployment: Vinext, Cloudflare Workers, Sites
 - Version control: Git, GitHub
 
 ## 로컬 실행

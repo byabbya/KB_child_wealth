@@ -1,23 +1,52 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import test from "node:test";
+import { fileURLToPath } from "node:url";
+import net from "node:net";
+import test, { after, before } from "node:test";
 
-async function render() {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
-  return worker.fetch(
-    new Request("http://localhost/", { headers: { accept: "text/html" } }),
-    { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
-    { waitUntil() {}, passThroughOnException() {} },
-  );
+const projectRoot = fileURLToPath(new URL("..", import.meta.url));
+const nextCli = fileURLToPath(new URL("../node_modules/next/dist/bin/next", import.meta.url));
+let server;
+let baseUrl;
+
+function availablePort() {
+  return new Promise((resolve, reject) => {
+    const listener = net.createServer();
+    listener.once("error", reject);
+    listener.listen(0, "127.0.0.1", () => {
+      const address = listener.address();
+      listener.close(() => resolve(address.port));
+    });
+  });
 }
 
-async function worker() {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("api-test", `${process.pid}-${Date.now()}-${Math.random()}`);
-  const { default: app } = await import(workerUrl.href);
-  return app;
+before(async () => {
+  const port = await availablePort();
+  baseUrl = `http://127.0.0.1:${port}`;
+  server = spawn(process.execPath, [nextCli, "start", "-H", "127.0.0.1", "-p", String(port)], {
+    cwd: projectRoot,
+    env: { ...process.env, GEMINI_API_KEY: "", NEXT_TELEMETRY_DISABLED: "1" },
+    stdio: "ignore",
+  });
+
+  const deadline = Date.now() + 20_000;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(baseUrl);
+      if (response.ok) return;
+    } catch {}
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+  throw new Error("Next.js test server did not start in time.");
+});
+
+after(() => {
+  server?.kill();
+});
+
+function render() {
+  return fetch(baseUrl, { headers: { accept: "text/html" } });
 }
 
 test("renders the KB child asset management dashboard", async () => {
@@ -70,9 +99,7 @@ test("places previous-goal comparison inside the rebalancing view", async () => 
 });
 
 test("portfolio API ignores client-supplied policy facts and baseline allocations", async () => {
-  const app = await worker();
-  const response = await app.fetch(
-    new Request("http://localhost/api/portfolio-advice", {
+  const response = await fetch(`${baseUrl}/api/portfolio-advice`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -92,10 +119,7 @@ test("portfolio API ignores client-supplied policy facts and baseline allocation
         policyFacts: { growthAssetMaximum: 100 },
         deterministicProposal: { allocations: { cash: 100 } },
       }),
-    }),
-    { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
-    { waitUntil() {}, passThroughOnException() {} },
-  );
+    });
   assert.equal(response.status, 200);
   const result = await response.json();
   assert.equal(result.status, "fallback");
