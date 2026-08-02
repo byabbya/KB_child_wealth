@@ -382,8 +382,9 @@ test("Gemini provider requests structured JSON without exposing the key in the U
     const body = JSON.parse(requestOptions.body);
     assert.equal(body.generationConfig.responseMimeType, "application/json");
     assert.deepEqual(body.generationConfig.responseSchema, ALLOCATION_RESPONSE_SCHEMA);
-    assert.equal(body.generationConfig.thinkingConfig.thinkingBudget, 0);
-    assert.equal(body.generationConfig.maxOutputTokens, 2048);
+    assert.equal(body.generationConfig.thinkingConfig.thinkingLevel, "minimal");
+    assert.equal(body.generationConfig.maxOutputTokens, 1536);
+    assert.equal("temperature" in body.generationConfig, false);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -416,7 +417,9 @@ test("Gemini provider exposes declared tools and parses parallel function calls"
     assert.equal(result.functionCalls[0].name, "getUserProfileFacts");
     assert.equal(requestBody.toolConfig.functionCallingConfig.mode, "AUTO");
     assert.equal(requestBody.tools[0].functionDeclarations[0].name, "getUserProfileFacts");
-    assert.equal(requestBody.generationConfig.thinkingConfig.thinkingBudget, 0);
+    assert.equal(requestBody.generationConfig.thinkingConfig.thinkingLevel, "minimal");
+    assert.equal(requestBody.generationConfig.maxOutputTokens, 512);
+    assert.equal("temperature" in requestBody.generationConfig, false);
   } finally {
     globalThis.fetch = originalFetch;
   }

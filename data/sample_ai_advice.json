@@ -1,7 +1,7 @@
 {
   "status": "validated",
   "provider": "sample",
-  "model": "gemini-2.5-flash",
+  "model": "gemini-3.5-flash",
   "message": "저장된 Gemini 분석 결과를 초기 화면에 표시합니다.",
   "consideredFactors": [
     "자녀의 대학 입학 준비 목표 (8천만원, 2034년 3월 1일)",

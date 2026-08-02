@@ -127,7 +127,7 @@ export async function POST(request: Request) {
   const provider = process.env.GEMINI_API_KEY
     ? new GeminiLlmProvider({
         apiKey: process.env.GEMINI_API_KEY,
-        model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+        model: process.env.GEMINI_MODEL || "gemini-3.5-flash",
         timeoutMs: 9_000,
       })
     : null;
