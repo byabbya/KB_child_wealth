@@ -20,6 +20,7 @@ import {
 } from "../lib/rules.mjs";
 import {
   ALLOCATION_RESPONSE_SCHEMA,
+  COMBINED_ADVICE_SCHEMA,
   GeminiLlmProvider,
   PortfolioPolicyValidator,
   evaluateMarketSnapshot,
@@ -374,6 +375,8 @@ test("Gemini provider requests structured JSON without exposing the key in the U
     const body = JSON.parse(requestOptions.body);
     assert.equal(body.generationConfig.responseMimeType, "application/json");
     assert.deepEqual(body.generationConfig.responseSchema, ALLOCATION_RESPONSE_SCHEMA);
+    assert.equal(body.generationConfig.thinkingConfig.thinkingBudget, 0);
+    assert.equal(body.generationConfig.maxOutputTokens, 2048);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -412,29 +415,24 @@ test("stale market snapshots are neutralized and excluded from allocation eviden
   assert.match(stale.warning, /시장자료가 오래됐거나/);
 });
 
-test("agent runs user and market analysis before optimizing allocations", async () => {
+test("agent combines user, market, and allocation analysis in one Gemini call", async () => {
   const plan = buildPlan();
   const schemas = [];
   const provider = {
     name: "gemini",
     async complete(_messages, schema) {
       schemas.push(schema);
-      if (schema.properties.preferenceInsights) {
-        return {
-          model: "gemini-test",
-          content: JSON.stringify({
+      return {
+        model: "gemini-test",
+        content: JSON.stringify({
+          userAnalysis: {
             summary: "적금 우선과 장기 투자 선호를 확인했습니다.",
             preferenceInsights: ["적금 우선", "ETF 중심"],
             goalGapInsight: "목표까지 추가 적립이 필요합니다.",
             concentrationRisks: ["안전자산 비중 점검"],
             liquidityNeeds: ["월 납입 계획 반영"],
-          }),
-        };
-      }
-      if (schema.properties.domesticOutlook) {
-        return {
-          model: "gemini-test",
-          content: JSON.stringify({
+          },
+          marketAnalysis: {
             summary: "미국시장은 긍정, 국내시장은 주의로 분석했습니다.",
             domesticOutlook: "cautious",
             usOutlook: "positive",
@@ -443,23 +441,20 @@ test("agent runs user and market analysis before optimizing allocations", async 
             confidence: "medium",
             riskFactors: ["환율 변동"],
             evidenceIds: ["indicator-us-equity-trend", "indicator-krw-usd-risk"],
-          }),
-        };
-      }
-      return {
-        model: "gemini-test",
-        content: JSON.stringify({
-          allocations: plan.target,
-          allocationRationales: plan.recommendations.map((item) => ({
-            assetClass: item.assetClass,
-            rationale: `${item.label} 배분 근거`,
-            evidenceIds: item.assetClass === "overseasEtf"
-              ? ["indicator-us-equity-trend"]
-              : [],
-          })),
-          consideredFactors: ["사용자 선호", "시장 분석"],
-          assumptions: ["샘플 시장자료"],
-          summary: "사용자 조건과 시장 분석을 결합했습니다.",
+          },
+          proposal: {
+            allocations: plan.target,
+            allocationRationales: plan.recommendations.map((item) => ({
+              assetClass: item.assetClass,
+              rationale: `${item.label} 배분 근거`,
+              evidenceIds: item.assetClass === "overseasEtf"
+                ? ["indicator-us-equity-trend"]
+                : [],
+            })),
+            consideredFactors: ["사용자 선호", "시장 분석"],
+            assumptions: ["샘플 시장자료"],
+            summary: "사용자 조건과 시장 분석을 결합했습니다.",
+          },
         }),
       };
     },
@@ -469,7 +464,8 @@ test("agent runs user and market analysis before optimizing allocations", async 
   assert.equal(result.provider, "gemini");
   assert.equal(result.analysis.user.status, "ai");
   assert.equal(result.analysis.market.status, "ai");
-  assert.equal(schemas.length, 3);
+  assert.equal(schemas.length, 1);
+  assert.deepEqual(schemas[0], COMBINED_ADVICE_SCHEMA);
   assert.deepEqual(result.proposal.allocations, plan.target);
 });
 

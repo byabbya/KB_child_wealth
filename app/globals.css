@@ -1703,17 +1703,32 @@ footer p {
 }
 
 .donut-arrow {
-  align-items: center;
-  background: #ffcf33;
-  border-radius: 50%;
-  color: #29251f;
-  display: flex;
-  font-size: 19px;
-  font-weight: 900;
-  height: 40px;
-  justify-content: center;
+  height: 24px;
   margin-top: 126px;
-  width: 40px;
+  position: relative;
+  width: 56px;
+}
+
+.donut-arrow::before {
+  background: #b59a55;
+  content: "";
+  height: 2px;
+  left: 4px;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.donut-arrow::after {
+  border-bottom: 5px solid transparent;
+  border-left: 8px solid #b59a55;
+  border-top: 5px solid transparent;
+  content: "";
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .recommended-portfolio-column {
@@ -2071,8 +2086,30 @@ footer p {
   }
 
   .donut-arrow {
-    margin-top: 0;
-    transform: rotate(90deg);
+    height: 44px;
+    margin: 0 auto;
+    transform: none;
+    width: 24px;
+  }
+
+  .donut-arrow::before {
+    bottom: 8px;
+    height: auto;
+    left: 50%;
+    right: auto;
+    top: 4px;
+    transform: translateX(-50%);
+    width: 2px;
+  }
+
+  .donut-arrow::after {
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 8px solid #b59a55;
+    bottom: 1px;
+    right: 50%;
+    top: auto;
+    transform: translateX(50%);
   }
 
   .recommended-portfolio-column {
@@ -3074,18 +3111,32 @@ body {
   }
 
   .donut-arrow {
-    align-items: center;
-    background: #fff7d6;
-    border: 1px solid #f1d36b;
-    border-radius: 50%;
-    color: #5c4b16;
-    display: flex;
-    font-size: 22px;
-    height: 40px;
-    justify-content: center;
-    margin: -2px auto;
-    transform: rotate(90deg);
-    width: 40px;
+    height: 42px;
+    margin: -2px auto 2px;
+    transform: none;
+    width: 24px;
+  }
+
+  .donut-arrow::before {
+    background: linear-gradient(#d5c6a0, #9c8345);
+    bottom: 8px;
+    height: auto;
+    left: 50%;
+    right: auto;
+    top: 2px;
+    transform: translateX(-50%);
+    width: 2px;
+  }
+
+  .donut-arrow::after {
+    border-bottom: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 8px solid #9c8345;
+    bottom: 1px;
+    right: 50%;
+    top: auto;
+    transform: translateX(50%);
   }
 
   .portfolio-donut {

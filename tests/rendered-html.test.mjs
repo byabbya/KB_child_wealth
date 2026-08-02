@@ -37,7 +37,8 @@ test("renders the KB child asset management dashboard", async () => {
   assert.match(html, /목표 포트폴리오.*추천 상품.*리밸런싱 제안/s);
   assert.doesNotMatch(html, /지난 목표 대비 변화/);
   assert.doesNotMatch(html, /Gemini 포트폴리오 분석/);
-  assert.match(html, /donut-arrow[^>]*>→</);
+  assert.match(html, /donut-arrow/);
+  assert.doesNotMatch(html, /donut-arrow[^>]*>→</);
   assert.match(html, /자산군.*현재.*추천.*차이/s);
   assert.doesNotMatch(html, /10년 증여재산공제 시뮬레이션|추가 증여 시뮬레이션/);
   assert.doesNotMatch(html, /샘플 자산 데이터|고정 시나리오|실제 자녀·계좌 정보를 조회하거나 연결하지 않습니다/);

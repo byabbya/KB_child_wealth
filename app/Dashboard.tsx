@@ -663,7 +663,7 @@ export default function Dashboard() {
                   centerValue={compactCurrency(plan.current.total)}
                   focusedAssetClass={focusedAssetClass}
                 />
-                <div className="donut-arrow" aria-hidden="true">→</div>
+                <div className="donut-arrow" aria-hidden="true" />
                 <div className="recommended-portfolio-column">
                   <PortfolioDonut
                     title={currentAdvice && currentAdvice.status !== "fallback" ? "AI 추천 포트폴리오" : "AI 추천 포트폴리오 · 샘플"}
