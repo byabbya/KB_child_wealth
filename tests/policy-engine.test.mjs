@@ -20,8 +20,9 @@ import {
 } from "../lib/rules.mjs";
 import {
   ALLOCATION_RESPONSE_SCHEMA,
-  COMBINED_ADVICE_SCHEMA,
   GeminiLlmProvider,
+  PortfolioAdvisorAgent,
+  PortfolioAgentToolRegistry,
   PortfolioPolicyValidator,
   evaluateMarketSnapshot,
   runPortfolioAdvisor,
@@ -109,6 +110,12 @@ function buildAgentInput(plan = buildPlan()) {
       consideredFactors: ["선호 순위", "투자기간"],
       assumptions: ["샘플 데이터"],
       summary: "규칙 기반 기준안",
+    },
+    toolContext: {
+      eligibleProducts: plan.recommendations,
+      investmentTaxRules,
+      feeAssumptions,
+      earlyTerminationWarnings: plan.rebalancing.holds.filter((item) => item.keep),
     },
   };
 }
@@ -382,6 +389,39 @@ test("Gemini provider requests structured JSON without exposing the key in the U
   }
 });
 
+test("Gemini provider exposes declared tools and parses parallel function calls", async () => {
+  const originalFetch = globalThis.fetch;
+  let requestBody;
+  globalThis.fetch = async (_url, options) => {
+    requestBody = JSON.parse(options.body);
+    return new Response(JSON.stringify({
+      candidates: [{
+        content: {
+          parts: [
+            { functionCall: { name: "getUserProfileFacts", args: {} } },
+            { functionCall: { name: "getMarketFacts", args: { scopes: ["us"] } } },
+          ],
+        },
+      }],
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  try {
+    const provider = new GeminiLlmProvider({ apiKey: "server-secret", model: "gemini-test" });
+    const result = await provider.nextToolTurn({
+      system: "system",
+      contents: [{ role: "user", parts: [{ text: "analyze" }] }],
+      tools: [{ name: "getUserProfileFacts", description: "facts", parameters: { type: "object", properties: {} } }],
+    });
+    assert.equal(result.functionCalls.length, 2);
+    assert.equal(result.functionCalls[0].name, "getUserProfileFacts");
+    assert.equal(requestBody.toolConfig.functionCallingConfig.mode, "AUTO");
+    assert.equal(requestBody.tools[0].functionDeclarations[0].name, "getUserProfileFacts");
+    assert.equal(requestBody.generationConfig.thinkingConfig.thinkingBudget, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("agent uses deterministic fallback when Gemini is unavailable", async () => {
   const plan = buildPlan();
   const result = await runPortfolioAdvisor({
@@ -415,46 +455,47 @@ test("stale market snapshots are neutralized and excluded from allocation eviden
   assert.match(stale.warning, /시장자료가 오래됐거나/);
 });
 
-test("agent combines user, market, and allocation analysis in one Gemini call", async () => {
+test("single advisor agent calls financial tools before producing an allocation", async () => {
   const plan = buildPlan();
   const schemas = [];
+  let toolTurn = 0;
   const provider = {
     name: "gemini",
+    async nextToolTurn() {
+      toolTurn += 1;
+      const functionCalls = toolTurn === 1
+        ? [
+            { name: "getUserProfileFacts", args: {} },
+            { name: "getMarketFacts", args: { scopes: ["domestic", "us", "rates"] } },
+            { name: "getPolicyFacts", args: {} },
+            { name: "listEligibleKbProducts", args: { assetClasses: Object.keys(plan.target) } },
+          ]
+        : [
+            { name: "simulateAllocation", args: { allocations: plan.target } },
+            { name: "estimateNetCost", args: { allocations: plan.target } },
+          ];
+      return {
+        model: "gemini-test",
+        parts: functionCalls.map((call) => ({ functionCall: call })),
+        functionCalls,
+      };
+    },
     async complete(_messages, schema) {
       schemas.push(schema);
       return {
         model: "gemini-test",
         content: JSON.stringify({
-          userAnalysis: {
-            summary: "적금 우선과 장기 투자 선호를 확인했습니다.",
-            preferenceInsights: ["적금 우선", "ETF 중심"],
-            goalGapInsight: "목표까지 추가 적립이 필요합니다.",
-            concentrationRisks: ["안전자산 비중 점검"],
-            liquidityNeeds: ["월 납입 계획 반영"],
-          },
-          marketAnalysis: {
-            summary: "미국시장은 긍정, 국내시장은 주의로 분석했습니다.",
-            domesticOutlook: "cautious",
-            usOutlook: "positive",
-            etfOutlook: "positive",
-            individualOutlook: "cautious",
-            confidence: "medium",
-            riskFactors: ["환율 변동"],
-            evidenceIds: ["indicator-us-equity-trend", "indicator-krw-usd-risk"],
-          },
-          proposal: {
-            allocations: plan.target,
-            allocationRationales: plan.recommendations.map((item) => ({
-              assetClass: item.assetClass,
-              rationale: `${item.label} 배분 근거`,
-              evidenceIds: item.assetClass === "overseasEtf"
-                ? ["indicator-us-equity-trend"]
-                : [],
-            })),
-            consideredFactors: ["사용자 선호", "시장 분석"],
-            assumptions: ["샘플 시장자료"],
-            summary: "사용자 조건과 시장 분석을 결합했습니다.",
-          },
+          allocations: plan.target,
+          allocationRationales: plan.recommendations.map((item) => ({
+            assetClass: item.assetClass,
+            rationale: `${item.label} 배분 근거`,
+            evidenceIds: item.assetClass === "overseasEtf"
+              ? ["indicator-us-equity-trend"]
+              : [],
+          })),
+          consideredFactors: ["사용자 선호", "시장 분석", "정책 제한"],
+          assumptions: ["샘플 시장자료"],
+          summary: "금융 도구 결과를 반영했습니다.",
         }),
       };
     },
@@ -462,11 +503,82 @@ test("agent combines user, market, and allocation analysis in one Gemini call", 
   const result = await runPortfolioAdvisor({ provider, input: buildAgentInput(plan) });
   assert.equal(result.status, "validated");
   assert.equal(result.provider, "gemini");
-  assert.equal(result.analysis.user.status, "ai");
-  assert.equal(result.analysis.market.status, "ai");
+  assert.equal(result.analysis.user.status, "agent-tool");
+  assert.equal(result.analysis.market.status, "agent-tool");
+  assert.equal(result.agentRun.mode, "gemini_tools");
+  assert.equal(result.agentRun.toolCallCount, 6);
+  assert.equal(result.agentRun.turns, 2);
+  assert.deepEqual(result.agentRun.usedTools, [
+    "getUserProfileFacts",
+    "getMarketFacts",
+    "getPolicyFacts",
+    "listEligibleKbProducts",
+    "simulateAllocation",
+    "estimateNetCost",
+  ]);
   assert.equal(schemas.length, 1);
-  assert.deepEqual(schemas[0], COMBINED_ADVICE_SCHEMA);
+  assert.deepEqual(schemas[0], ALLOCATION_RESPONSE_SCHEMA);
   assert.deepEqual(result.proposal.allocations, plan.target);
+});
+
+test("agent rejects unknown and repeated tool calls", async () => {
+  const plan = buildPlan();
+  const input = buildAgentInput(plan);
+  input.marketFreshness = evaluateMarketSnapshot(marketSnapshot, plan.policyFacts.asOf);
+  const registry = new PortfolioAgentToolRegistry(input);
+  await assert.rejects(() => registry.execute("placeTrade", {}), /허용되지 않은/);
+
+  const repeatedProvider = {
+    async nextToolTurn() {
+      const functionCalls = [
+        { name: "getUserProfileFacts", args: {} },
+        { name: "getUserProfileFacts", args: {} },
+      ];
+      return { model: "gemini-test", parts: functionCalls.map((call) => ({ functionCall: call })), functionCalls };
+    },
+    async complete() {
+      throw new Error("final output should not run");
+    },
+  };
+  const result = await new PortfolioAdvisorAgent({ provider: repeatedProvider }).run(buildAgentInput(plan));
+  assert.equal(result.status, "fallback");
+  assert.match(result.message, /반복/);
+});
+
+test("agent validates tool arguments, call limits, and overall timeout", async () => {
+  const plan = buildPlan();
+  const input = buildAgentInput(plan);
+  input.marketFreshness = evaluateMarketSnapshot(marketSnapshot, plan.policyFacts.asOf);
+  const registry = new PortfolioAgentToolRegistry(input);
+  await assert.rejects(() => registry.execute("simulateAllocation", {}), /8개 자산군/);
+
+  const excessiveProvider = {
+    async nextToolTurn() {
+      const functionCalls = [
+        { name: "getUserProfileFacts", args: {} },
+        { name: "getMarketFacts", args: {} },
+      ];
+      return { model: "gemini-test", parts: functionCalls.map((call) => ({ functionCall: call })), functionCalls };
+    },
+  };
+  const excessive = await new PortfolioAdvisorAgent({
+    provider: excessiveProvider,
+    maxToolCalls: 1,
+  }).run(buildAgentInput(plan));
+  assert.equal(excessive.status, "fallback");
+  assert.match(excessive.message, /호출 한도/);
+
+  const timeoutProvider = {
+    async nextToolTurn() {
+      return new Promise(() => {});
+    },
+  };
+  const timedOut = await new PortfolioAdvisorAgent({
+    provider: timeoutProvider,
+    timeoutMs: 5,
+  }).run(buildAgentInput(plan));
+  assert.equal(timedOut.status, "fallback");
+  assert.match(timedOut.message, /시간이 초과/);
 });
 
 test("validator deterministically repairs allocation drift beyond five percentage points", () => {

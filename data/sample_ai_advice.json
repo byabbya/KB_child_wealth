@@ -108,6 +108,20 @@
       ]
     }
   },
+  "agentRun": {
+    "mode": "gemini_tools",
+    "usedTools": [
+      "getUserProfileFacts",
+      "getMarketFacts",
+      "getPolicyFacts",
+      "listEligibleKbProducts",
+      "simulateAllocation",
+      "estimateNetCost"
+    ],
+    "toolCallCount": 6,
+    "turns": 2,
+    "validation": "passed"
+  },
   "marketDataStatus": {
     "fresh": true,
     "status": "fresh",

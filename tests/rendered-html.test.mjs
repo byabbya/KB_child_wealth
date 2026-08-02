@@ -13,6 +13,13 @@ async function render() {
   );
 }
 
+async function worker() {
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("api-test", `${process.pid}-${Date.now()}-${Math.random()}`);
+  const { default: app } = await import(workerUrl.href);
+  return app;
+}
+
 test("renders the KB child asset management dashboard", async () => {
   const response = await render();
   assert.equal(response.status, 200);
@@ -30,11 +37,10 @@ test("renders the KB child asset management dashboard", async () => {
   assert.match(html, /AI 실행 전 화면 확인용 샘플 분석/);
   assert.match(html, /예적금 비중을 유지하면서 ETF를 활용한 국내외 성장자산 투자를 확대/);
   assert.match(html, /AI 추천 근거/);
-  assert.match(html, /사용자 분석/);
-  assert.match(html, /시장 분석/);
   assert.match(html, /최종 추천/);
-  assert.match(html, /규칙 확인/);
-  assert.match(html, /KB 상품 연결/);
+  assert.match(html, /금융 도구 6회 확인 · 정책 검증 완료/);
+  assert.match(html, /시장자료.*2026-07-30.*기준/s);
+  assert.doesNotMatch(html, /사용자 분석.*시장 분석.*규칙 확인.*KB 상품 연결/s);
   assert.match(html, /추천 상품/);
   assert.match(html, /목표 포트폴리오.*추천 상품.*리밸런싱 제안/s);
   assert.doesNotMatch(html, /지난 목표 대비 변화/);
@@ -61,4 +67,46 @@ test("places previous-goal comparison inside the rebalancing view", async () => 
   const rebalanceView = source.slice(source.indexOf("function RebalanceView"));
   assert.match(rebalanceView, /<PreviousGoalComparison/);
   assert.match(rebalanceView, /이번 달 리밸런싱 제안/);
+});
+
+test("portfolio API ignores client-supplied policy facts and baseline allocations", async () => {
+  const app = await worker();
+  const response = await app.fetch(
+    new Request("http://localhost/api/portfolio-advice", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        profile: {
+          assetRanking: ["savings", "deposit", "stock", "bond"],
+          strategyRanking: ["etf", "individual", "us", "domestic"],
+          horizonYears: 8,
+          monthlyContribution: 500000,
+        },
+        proposedGift: {
+          date: "2026-07-30",
+          amount: 5000000,
+          donorId: "parent-father",
+          donorGroupId: "parent-couple",
+          donorRelationship: "부",
+        },
+        policyFacts: { growthAssetMaximum: 100 },
+        deterministicProposal: { allocations: { cash: 100 } },
+      }),
+    }),
+    { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
+    { waitUntil() {}, passThroughOnException() {} },
+  );
+  assert.equal(response.status, 200);
+  const result = await response.json();
+  assert.equal(result.status, "fallback");
+  assert.deepEqual(result.proposal.allocations, {
+    cash: 10,
+    savings: 36,
+    deposit: 27,
+    fund: 9,
+    domesticEtf: 5,
+    overseasEtf: 7.6,
+    domesticStock: 2.2,
+    overseasStock: 3.2,
+  });
 });

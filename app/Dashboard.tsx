@@ -128,6 +128,13 @@ type AiAdvice = {
     evidenceIds: string[];
     warning: string | null;
   };
+  agentRun?: {
+    mode: "gemini_tools" | "deterministic";
+    usedTools: string[];
+    toolCallCount: number;
+    turns: number;
+    validation: "passed" | "adjusted" | "fallback";
+  };
 };
 
 type MockLink = ReturnType<StaticProductLinkProvider["getLink"]>;
@@ -364,42 +371,17 @@ export default function Dashboard() {
     setAiAdvice(null);
     setAiAdviceSignature(null);
     try {
-      const deterministicProposal = {
-        allocations: plan.target,
-        allocationRationales: plan.recommendations.map((item) => ({
-          assetClass: item.assetClass,
-          rationale: item.reason,
-          evidenceIds: [],
-        })),
-        consideredFactors: [
-          plan.preference.label,
-          `${state.horizonYears}년 투자기간`,
-          "KB 상품 적합성",
-          "세금·수수료 규칙",
-        ],
-        assumptions: ["샘플 데이터"],
-        summary: "선호 순위와 금융 기준을 적용한 기본 포트폴리오입니다.",
-      };
       const response = await fetch("/api/portfolio-advice", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          child: {
-            name: child.name,
-            age: plan.age,
-            goal: child.goal,
-            goalAmount: child.goalAmount,
-          },
           profile: {
             assetRanking: state.assetRanking,
             strategyRanking: state.strategyRanking,
             horizonYears: state.horizonYears,
             monthlyContribution: state.monthlyContribution,
           },
-          policyFacts: plan.policyFacts,
-          currentPortfolio: plan.current,
-          marketSnapshot: prototypeCatalog.marketSnapshot,
-          deterministicProposal,
+          proposedGift: state.proposedGift,
         }),
       });
       if (!response.ok) throw new Error("AI 분석 요청에 실패했습니다.");
@@ -418,6 +400,13 @@ export default function Dashboard() {
           allocations: plan.target,
           allocationRationales: [],
           summary: "금융 기준을 적용한 안전한 기본 추천입니다.",
+        },
+        agentRun: {
+          mode: "deterministic",
+          usedTools: [],
+          toolCallCount: 0,
+          turns: 0,
+          validation: "fallback",
         },
       });
       setAiAdviceSignature(requestSignature);
@@ -873,66 +862,22 @@ function RecommendationRationale({
   plan: PortfolioPlan;
   sample: boolean;
 }) {
-  const outlookLabels = {
-    positive: "긍정",
-    neutral: "중립",
-    cautious: "주의",
-  } as const;
-  const evidence = [
-    ...prototypeCatalog.marketSnapshot.indicators,
-    ...prototypeCatalog.marketSnapshot.news,
-    ...prototypeCatalog.marketSnapshot.kbResearch,
-  ];
-  const evidenceById = new Map(evidence.map((item) => [item.id, item]));
-  const usedSources = (advice?.analysis?.market.evidenceIds ?? [])
-    .map((id) => evidenceById.get(id))
-    .filter(Boolean)
-    .map((item) => `${item?.sourceName} · ${"publishedAt" in item! ? item?.publishedAt : item?.effectiveDate}`)
-    .filter((value, index, values) => values.indexOf(value) === index);
-  const market = advice?.analysis?.market;
-  const user = advice?.analysis?.user;
-  const success = advice && advice.status !== "fallback";
-  const ruleMessage =
-    advice?.status === "adjusted"
-      ? rationale.adjustment ?? "허용 범위를 벗어난 비중을 금융 기준에 맞게 조정했습니다."
-      : success
-        ? "비중 합계, 투자기간별 성장자산 한도와 시장 근거를 확인했습니다."
-        : "투자기간별 안전장치와 KB 상품 적합성 기준을 적용한 기준안입니다.";
-  const sections = [
-    {
-      label: "사용자 분석",
-      body: user?.summary ?? rationale.reasons[0] ?? rationale.intro,
-      meta: user?.goalGapInsight || null,
-    },
-    {
-      label: "시장 분석",
-      body:
-        market?.summary ??
-        (advice?.status === "fallback"
-          ? "AI가 연결되지 않아 시장 판단을 비중에 반영하지 않았습니다."
-          : "AI 분석 전에는 시장 판단을 비중에 반영하지 않습니다."),
-      meta: market
-        ? `국내 ${outlookLabels[market.domesticOutlook]} · 미국 ${outlookLabels[market.usOutlook]} · 신뢰도 ${market.confidence}`
-        : null,
-    },
-    {
-      label: "최종 추천",
-      body: success
-        ? advice.proposal.summary ?? rationale.intro
-        : "입력한 선호와 투자기간을 바탕으로 구성한 규칙 기반 추천입니다.",
-      meta: null,
-    },
-    {
-      label: "규칙 확인",
-      body: ruleMessage,
-      meta: null,
-    },
-    {
-      label: "KB 상품 연결",
-      body: `검증된 최종 비중에 맞춰 KB국민은행·KB증권 상품 ${plan.recommendations.length}개를 연결했습니다.`,
-      meta: "상품 금액·세금·수수료는 금융 기준에서 다시 계산합니다.",
-    },
-  ];
+  const success = Boolean(advice && advice.status !== "fallback");
+  const summary = success
+    ? advice?.proposal.summary ?? rationale.intro
+    : "입력한 선호와 투자기간을 바탕으로 구성한 규칙 기반 추천입니다.";
+  const factors = (success ? advice?.consideredFactors : rationale.reasons)
+    ?.filter(Boolean)
+    .filter((value, index, values) => values.indexOf(value) === index)
+    .slice(0, 3) ?? [];
+  const marketAsOf = advice?.marketDataStatus?.asOf ?? prototypeCatalog.marketSnapshot.asOf;
+  const toolStatus = advice?.agentRun?.mode === "gemini_tools"
+    ? `금융 도구 ${advice.agentRun.toolCallCount}회 확인 · 정책 검증 완료`
+    : advice?.status === "fallback"
+      ? "AI 연결 실패 · 금융 기준으로 안전하게 대체"
+      : sample
+        ? "샘플 에이전트 결과 · 금융 정책 검증 적용"
+        : `금융 기준 확인 · KB 상품 ${plan.recommendations.length}개 연결`;
   return (
     <details
       className={`recommendation-rationale ${rationale.state}`}
@@ -949,24 +894,24 @@ function RecommendationRationale({
       </summary>
       <div className="recommendation-rationale-body" aria-live="polite">
         <p>{sample ? "AI 실행 전 화면 확인용 샘플 분석입니다. 분석 버튼을 누르면 실제 AI 결과로 교체됩니다." : rationale.intro}</p>
-        <ol className="ai-evidence-flow">
-          {sections.map((section, index) => (
-            <li key={section.label}>
-              <span className="ai-evidence-step">{index + 1}</span>
-              <div>
-                <strong>{section.label}</strong>
-                <p>{section.body}</p>
-                {section.meta ? <small>{section.meta}</small> : null}
-              </div>
-            </li>
-          ))}
-        </ol>
-        {usedSources.length > 0 ? (
-          <div className="ai-market-sources">
-            <strong>사용한 시장자료</strong>
-            <span>{usedSources.slice(0, 3).join(" · ")}</span>
-          </div>
+        <div className="ai-final-summary">
+          <strong>최종 추천</strong>
+          <p>{summary}</p>
+        </div>
+        {factors.length > 0 ? (
+          <ul className="ai-final-factors">
+            {factors.map((factor) => <li key={factor}>{factor}</li>)}
+          </ul>
         ) : null}
+        {advice?.status === "adjusted" ? (
+          <p className="ai-policy-adjustment">
+            {rationale.adjustment ?? "투자기간과 안전자산 조건에 맞춰 일부 비중을 조정했습니다."}
+          </p>
+        ) : null}
+        <div className="ai-agent-status">
+          <span>{toolStatus}</span>
+          <span>시장자료 {marketAsOf} 기준</span>
+        </div>
       </div>
     </details>
   );
