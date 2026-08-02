@@ -2346,7 +2346,7 @@ body {
 
 .recommendation-rationale-slot {
   display: flex;
-  justify-content: flex-end;
+  justify-content: stretch;
   margin: 0 auto 20px;
   max-width: 760px;
 }
@@ -2357,7 +2357,111 @@ body {
   border-radius: 10px;
   background: #fafafa;
   padding: 16px;
-  width: calc((100% - 74px) / 2);
+  width: 100%;
+}
+
+.ai-evidence-flow {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+
+.ai-evidence-flow > li {
+  align-items: flex-start;
+  background: #fff;
+  border: 1px solid #e6e7e9;
+  border-radius: 10px;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px 10px;
+}
+
+.ai-evidence-flow > li::before {
+  display: none;
+}
+
+.ai-evidence-step {
+  align-items: center;
+  background: var(--kb-yellow);
+  border-radius: 50%;
+  color: #2f2921;
+  display: inline-flex;
+  flex: 0 0 22px;
+  font-size: 11px;
+  font-weight: 800;
+  height: 22px;
+  justify-content: center;
+}
+
+.ai-evidence-flow div {
+  min-width: 0;
+}
+
+.ai-evidence-flow strong {
+  color: #292623;
+  display: block;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.ai-evidence-flow p {
+  color: #50545a;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.ai-evidence-flow small {
+  color: #7b8087;
+  display: block;
+  font-size: 10px;
+  line-height: 1.45;
+  margin-top: 5px;
+}
+
+.ai-market-sources {
+  border-top: 1px solid #e4e5e7;
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  padding-top: 10px;
+}
+
+.ai-market-sources strong {
+  color: #5d6268;
+  font-size: 11px;
+}
+
+.ai-market-sources span {
+  color: #777c82;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+@media (max-width: 700px) {
+  .ai-evidence-flow {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-evidence-flow > li {
+    min-height: 72px;
+    padding: 13px 12px;
+  }
+
+  .ai-evidence-flow strong,
+  .ai-evidence-flow p {
+    font-size: 14px;
+  }
+
+  .ai-evidence-flow small,
+  .ai-market-sources span {
+    font-size: 12px;
+  }
 }
 
 .recommendation-rationale.validated,

@@ -1,0 +1,86 @@
+{
+  "snapshotId": "market-snapshot-2026-07-30",
+  "label": "시장·뉴스·KB 리서치 샘플 스냅샷",
+  "asOf": "2026-07-30",
+  "lastVerifiedAt": "2026-07-30",
+  "indicatorValidityDays": 7,
+  "contentValidityDays": 30,
+  "indicators": [
+    {
+      "id": "indicator-kr-equity-volatility",
+      "market": "domestic",
+      "name": "국내 주식시장 변동성",
+      "signal": "cautious",
+      "summary": "국내 주식은 업종별 등락 차이가 커 분산투자가 필요한 구간으로 가정합니다.",
+      "sourceName": "시장 분석용 샘플 지표",
+      "sourceReference": "sample:indicator-kr-equity-volatility",
+      "effectiveDate": "2026-07-30"
+    },
+    {
+      "id": "indicator-us-equity-trend",
+      "market": "us",
+      "name": "미국 주식시장 추세",
+      "signal": "positive",
+      "summary": "미국 주식은 장기 성장 기대와 높은 가격 부담이 함께 존재하는 것으로 가정합니다.",
+      "sourceName": "시장 분석용 샘플 지표",
+      "sourceReference": "sample:indicator-us-equity-trend",
+      "effectiveDate": "2026-07-30"
+    },
+    {
+      "id": "indicator-krw-usd-risk",
+      "market": "us",
+      "name": "원·달러 환율 변동 위험",
+      "signal": "cautious",
+      "summary": "해외자산은 환율 변화가 원화 기준 수익률을 확대하거나 낮출 수 있습니다.",
+      "sourceName": "시장 분석용 샘플 지표",
+      "sourceReference": "sample:indicator-krw-usd-risk",
+      "effectiveDate": "2026-07-30"
+    }
+  ],
+  "news": [
+    {
+      "id": "news-global-diversification",
+      "market": "global",
+      "title": "성장 기대와 가격 부담이 공존하는 글로벌 주식시장",
+      "summary": "단기 방향을 단정하기보다 지역과 종목을 나눠 접근할 필요가 있다는 샘플 뉴스 요약입니다.",
+      "signal": "neutral",
+      "publishedAt": "2026-07-29",
+      "sourceName": "뉴스 분석용 샘플 데이터",
+      "sourceReference": "sample:news-global-diversification"
+    },
+    {
+      "id": "news-rate-duration",
+      "market": "domestic",
+      "title": "금리 변화에 따른 예금과 채권형 상품의 역할 점검",
+      "summary": "투자기간과 중도해지 조건을 함께 확인해야 한다는 샘플 뉴스 요약입니다.",
+      "signal": "neutral",
+      "publishedAt": "2026-07-28",
+      "sourceName": "뉴스 분석용 샘플 데이터",
+      "sourceReference": "sample:news-rate-duration"
+    }
+  ],
+  "kbResearch": [
+    {
+      "id": "kb-research-long-term-allocation",
+      "market": "global",
+      "title": "장기 목표 자금의 분산배분 점검",
+      "summary": "장기 목표일수록 현금성 자산과 성장자산을 함께 두고 정기적으로 비중을 점검한다는 KB 리서치 형식의 샘플 요약입니다.",
+      "signal": "neutral",
+      "publishedAt": "2026-07-25",
+      "sourceName": "KB 리서치 형식 샘플 요약",
+      "sourceReference": "sample:kb-research-long-term-allocation",
+      "official": false
+    },
+    {
+      "id": "kb-research-etf-diversification",
+      "market": "global",
+      "title": "ETF를 활용한 지역 분산",
+      "summary": "개별종목 집중보다 ETF를 활용해 국내외 시장을 나누는 방안을 검토한다는 KB 리서치 형식의 샘플 요약입니다.",
+      "signal": "positive",
+      "publishedAt": "2026-07-24",
+      "sourceName": "KB 리서치 형식 샘플 요약",
+      "sourceReference": "sample:kb-research-etf-diversification",
+      "official": false
+    }
+  ]
+}

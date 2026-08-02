@@ -21,10 +21,15 @@ test("renders the KB child asset management dashboard", async () => {
   assert.match(html, /KB스타뱅킹/);
   assert.match(html, /현재 가입 가능한 KB국민은행 및 KB증권 상품/);
   assert.match(html, /포트폴리오 명세서/);
-  assert.match(html, /AI 포트폴리오 분석/);
+  assert.match(html, /Gemini 포트폴리오 분석/);
   assert.match(html, /현재 포트폴리오/);
   assert.match(html, /기본 추천 포트폴리오/);
   assert.match(html, /AI 추천 근거/);
+  assert.match(html, /사용자 분석/);
+  assert.match(html, /시장 분석/);
+  assert.match(html, /최종 추천/);
+  assert.match(html, /규칙 확인/);
+  assert.match(html, /KB 상품 연결/);
   assert.match(html, /현재 입력을 바탕으로 구성한 기본 추천의 근거입니다/);
   assert.match(html, /추천 상품/);
   assert.match(html, /목표 포트폴리오.*추천 상품.*리밸런싱 제안/s);
@@ -38,5 +43,6 @@ test("renders the KB child asset management dashboard", async () => {
   assert.doesNotMatch(html, /프로토타입|PortfolioAdvisorAgent|규칙 엔진/);
   assert.match(html, /선호 성향/);
   assert.doesNotMatch(html, /공모전 데모|DEMO|로그인|signin-with-chatgpt|KB증권 계좌 연결/);
+  assert.doesNotMatch(html, /Ollama|OLLAMA/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/);
 });

@@ -19,9 +19,10 @@ import {
   parsePolicyDocument,
 } from "../lib/rules.mjs";
 import {
+  ALLOCATION_RESPONSE_SCHEMA,
   GeminiLlmProvider,
-  PORTFOLIO_RESPONSE_SCHEMA,
   PortfolioPolicyValidator,
+  evaluateMarketSnapshot,
   runPortfolioAdvisor,
 } from "../lib/portfolio-agent.mjs";
 import { buildRecommendationRationale } from "../lib/recommendation-rationale.mjs";
@@ -35,6 +36,7 @@ const [
   investmentTaxText,
   feeText,
   productPolicyText,
+  marketSnapshotText,
 ] = await Promise.all([
   readFile(new URL("data/kb_bank_products.csv", root), "utf8"),
   readFile(new URL("data/kb_securities_assets.csv", root), "utf8"),
@@ -43,6 +45,7 @@ const [
   readFile(new URL("data/investment_tax_rules.yaml", root), "utf8"),
   readFile(new URL("data/fee_assumptions.yaml", root), "utf8"),
   readFile(new URL("data/kb_product_policies.yaml", root), "utf8"),
+  readFile(new URL("data/market_snapshot.json", root), "utf8"),
 ]);
 
 const banks = parseCsv(bankCsv);
@@ -52,6 +55,7 @@ const giftTaxRules = parsePolicyDocument(giftTaxText);
 const investmentTaxRules = parsePolicyDocument(investmentTaxText);
 const feeAssumptions = parsePolicyDocument(feeText);
 const productPolicies = parsePolicyDocument(productPolicyText);
+const marketSnapshot = JSON.parse(marketSnapshotText);
 const proposedGift = {
   date: "2026-07-30",
   amount: 5_000_000,
@@ -85,6 +89,27 @@ function buildPlan(overrides = {}) {
     productPolicies,
     ...overrides,
   });
+}
+
+function buildAgentInput(plan = buildPlan()) {
+  return {
+    child: data.children[0],
+    profile: defaultProfile,
+    policyFacts: plan.policyFacts,
+    currentPortfolio: plan.current,
+    marketSnapshot,
+    deterministicProposal: {
+      allocations: plan.target,
+      allocationRationales: plan.recommendations.map((item) => ({
+        assetClass: item.assetClass,
+        rationale: item.reason,
+        evidenceIds: [],
+      })),
+      consideredFactors: ["선호 순위", "투자기간"],
+      assumptions: ["샘플 데이터"],
+      summary: "규칙 기반 기준안",
+    },
+  };
 }
 
 test("preference rankings produce deterministic allocations", () => {
@@ -252,15 +277,10 @@ test("large early-termination loss or near maturity keeps KB deposits intact", (
   );
 });
 
-test("portfolio validator rejects unknown products, unsafe weights and AI tax overrides", () => {
+test("portfolio validator rejects product generation, unsafe drift and tax overrides", () => {
   const plan = buildPlan();
-  const input = {
-    profile: defaultProfile,
-    allowedCandidates: plan.recommendations.map((item) => ({
-      id: item.id,
-      assetClass: item.assetClass,
-    })),
-  };
+  const input = buildAgentInput(plan);
+  input.marketFreshness = evaluateMarketSnapshot(marketSnapshot, plan.policyFacts.asOf);
   const invalid = {
     allocations: {
       cash: 0,
@@ -272,61 +292,50 @@ test("portfolio validator rejects unknown products, unsafe weights and AI tax ov
       domesticStock: 0,
       overseasStock: 0,
     },
-    recommendations: [
-      { assetClass: "overseasStock", productId: "OTHER-BANK-STOCK" },
-    ],
+    allocationRationales: [],
+    recommendations: [{ productId: "OTHER-BANK-STOCK" }],
     taxFacts: { giftTax: 0 },
   };
   const result = new PortfolioPolicyValidator().validate(invalid, input);
   assert.equal(result.valid, false);
-  assert.ok(result.violations.some((item) => /허용되지 않은 상품/.test(item)));
-  assert.ok(result.violations.some((item) => /세금·수수료/.test(item)));
+  assert.ok(result.violations.some((item) => /상품·금액·세금·수수료/.test(item)));
+  assert.ok(result.violations.some((item) => /±5%p/.test(item)));
 });
 
-test("portfolio validator requires one matching recommendation for every positive allocation", () => {
+test("portfolio validator rejects untraceable market evidence", () => {
   const plan = buildPlan();
-  const input = {
-    profile: defaultProfile,
-    allowedCandidates: plan.recommendations.map((item) => ({
-      id: item.id,
-      assetClass: item.assetClass,
-    })),
-  };
-  const recommendations = plan.recommendations.map((item) => ({
-    assetClass: item.assetClass,
-    productId: item.id,
-    weight: item.targetWeight,
-    amount: 1,
-    action: "유지",
-    rationale: "검증용",
-  }));
-  recommendations.pop();
+  const input = buildAgentInput(plan);
+  input.marketFreshness = evaluateMarketSnapshot(marketSnapshot, plan.policyFacts.asOf);
   const result = new PortfolioPolicyValidator().validate(
-    { allocations: plan.target, recommendations },
+    {
+      allocations: plan.target,
+      allocationRationales: [{
+        assetClass: "overseasEtf",
+        rationale: "확인되지 않은 전망",
+        evidenceIds: ["invented-news"],
+      }],
+    },
     input,
   );
   assert.equal(result.valid, false);
-  assert.ok(result.violations.some((item) => /대응하는 상품 추천이 없습니다/.test(item)));
+  assert.ok(result.violations.some((item) => /확인되지 않은 시장 근거/.test(item)));
 });
 
-test("validated AI allocation drives target amounts while ignoring AI-provided amounts", () => {
+test("validated AI allocation is matched to KB products and amounts are recalculated", () => {
   const plan = buildPlan();
   const allocations = {
     ...plan.target,
     cash: plan.target.cash + 5,
     savings: plan.target.savings - 5,
   };
-  const recommendations = plan.recommendations.map((item) => ({
+  const allocationRationales = plan.recommendations.map((item) => ({
     assetClass: item.assetClass,
-    productId: item.id,
-    weight: allocations[item.assetClass],
-    amount: 999_999_999,
-    action: item.assetClass === "cash" ? "추가입금" : "유지",
     rationale: `AI 근거 ${item.assetClass}`,
+    evidenceIds: [],
   }));
   const effective = applyAdvisorProposal({
     basePlan: plan,
-    proposal: { allocations, recommendations },
+    proposal: { allocations, allocationRationales },
     data,
     bankProducts: banks,
     investmentTaxRules,
@@ -335,9 +344,9 @@ test("validated AI allocation drives target amounts while ignoring AI-provided a
   const cash = effective.recommendations.find((item) => item.assetClass === "cash");
   assert.equal(effective.target.cash, 15);
   assert.equal(cash.targetAmount, Math.round((plan.current.total * 15) / 100));
-  assert.notEqual(cash.targetAmount, 999_999_999);
   assert.equal(cash.reason, "AI 근거 cash");
-  assert.equal(cash.advisorAction, "추가입금");
+  assert.equal(cash.advisorAction, "매도검토");
+  assert.equal(cash.provider, "KB국민은행");
   assert.ok(effective.rebalancing);
 });
 
@@ -364,45 +373,124 @@ test("Gemini provider requests structured JSON without exposing the key in the U
     assert.equal(requestOptions.headers["x-goog-api-key"], "server-secret");
     const body = JSON.parse(requestOptions.body);
     assert.equal(body.generationConfig.responseMimeType, "application/json");
-    assert.deepEqual(body.generationConfig.responseSchema, PORTFOLIO_RESPONSE_SCHEMA);
+    assert.deepEqual(body.generationConfig.responseSchema, ALLOCATION_RESPONSE_SCHEMA);
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test("agent uses deterministic fallback when Ollama is unavailable", async () => {
+test("agent uses deterministic fallback when Gemini is unavailable", async () => {
   const plan = buildPlan();
-  const deterministicProposal = {
-    allocations: plan.target,
-    recommendations: plan.recommendations.map((item) => ({
-      assetClass: item.assetClass,
-      productId: item.id,
-      weight: item.targetWeight,
-      amount: item.targetAmount,
-      action: item.held ? "유지" : "추가입금",
-      rationale: item.reason,
-    })),
-  };
   const result = await runPortfolioAdvisor({
     provider: {
       async complete() {
-        throw new Error("Ollama offline");
+        throw new Error("Gemini unavailable");
       },
     },
-    input: {
-      child: data.children[0],
-      profile: defaultProfile,
-      policyFacts: plan.policyFacts,
-      allowedCandidates: plan.recommendations.map((item) => ({
-        id: item.id,
-        assetClass: item.assetClass,
-      })),
-      deterministicProposal,
-    },
+    input: buildAgentInput(plan),
   });
   assert.equal(result.status, "fallback");
   assert.deepEqual(result.proposal.allocations, plan.target);
-  assert.match(result.message, /규칙 기반 대체/);
+  assert.match(result.message, /Gemini 연결 실패/);
+});
+
+test("missing Gemini key returns an explicit deterministic fallback", async () => {
+  const plan = buildPlan();
+  const result = await runPortfolioAdvisor({
+    provider: null,
+    input: buildAgentInput(plan),
+  });
+  assert.equal(result.status, "fallback");
+  assert.equal(result.provider, "deterministic");
+  assert.match(result.message, /API 키가 설정되지 않았습니다/);
+});
+
+test("stale market snapshots are neutralized and excluded from allocation evidence", () => {
+  const stale = evaluateMarketSnapshot(marketSnapshot, "2027-01-01");
+  assert.equal(stale.fresh, false);
+  assert.equal(stale.status, "stale");
+  assert.match(stale.warning, /시장자료가 오래됐거나/);
+});
+
+test("agent runs user and market analysis before optimizing allocations", async () => {
+  const plan = buildPlan();
+  const schemas = [];
+  const provider = {
+    name: "gemini",
+    async complete(_messages, schema) {
+      schemas.push(schema);
+      if (schema.properties.preferenceInsights) {
+        return {
+          model: "gemini-test",
+          content: JSON.stringify({
+            summary: "적금 우선과 장기 투자 선호를 확인했습니다.",
+            preferenceInsights: ["적금 우선", "ETF 중심"],
+            goalGapInsight: "목표까지 추가 적립이 필요합니다.",
+            concentrationRisks: ["안전자산 비중 점검"],
+            liquidityNeeds: ["월 납입 계획 반영"],
+          }),
+        };
+      }
+      if (schema.properties.domesticOutlook) {
+        return {
+          model: "gemini-test",
+          content: JSON.stringify({
+            summary: "미국시장은 긍정, 국내시장은 주의로 분석했습니다.",
+            domesticOutlook: "cautious",
+            usOutlook: "positive",
+            etfOutlook: "positive",
+            individualOutlook: "cautious",
+            confidence: "medium",
+            riskFactors: ["환율 변동"],
+            evidenceIds: ["indicator-us-equity-trend", "indicator-krw-usd-risk"],
+          }),
+        };
+      }
+      return {
+        model: "gemini-test",
+        content: JSON.stringify({
+          allocations: plan.target,
+          allocationRationales: plan.recommendations.map((item) => ({
+            assetClass: item.assetClass,
+            rationale: `${item.label} 배분 근거`,
+            evidenceIds: item.assetClass === "overseasEtf"
+              ? ["indicator-us-equity-trend"]
+              : [],
+          })),
+          consideredFactors: ["사용자 선호", "시장 분석"],
+          assumptions: ["샘플 시장자료"],
+          summary: "사용자 조건과 시장 분석을 결합했습니다.",
+        }),
+      };
+    },
+  };
+  const result = await runPortfolioAdvisor({ provider, input: buildAgentInput(plan) });
+  assert.equal(result.status, "validated");
+  assert.equal(result.provider, "gemini");
+  assert.equal(result.analysis.user.status, "ai");
+  assert.equal(result.analysis.market.status, "ai");
+  assert.equal(schemas.length, 3);
+  assert.deepEqual(result.proposal.allocations, plan.target);
+});
+
+test("validator deterministically repairs allocation drift beyond five percentage points", () => {
+  const plan = buildPlan();
+  const input = buildAgentInput(plan);
+  input.marketFreshness = evaluateMarketSnapshot(marketSnapshot, plan.policyFacts.asOf);
+  const original = {
+    allocations: { ...plan.target, cash: 30, savings: 16 },
+    allocationRationales: [],
+    consideredFactors: ["시장 분석"],
+    assumptions: [],
+    summary: "과도한 변경",
+  };
+  const validator = new PortfolioPolicyValidator();
+  assert.equal(validator.validate(original, input).valid, false);
+  const repaired = validator.repair(original, input);
+  assert.equal(validator.validate(repaired, input).valid, true);
+  for (const key of Object.keys(plan.target)) {
+    assert.ok(Math.abs(repaired.allocations[key] - plan.target[key]) <= 5.01);
+  }
 });
 
 test("recommendation rationale distinguishes baseline, AI, adjustment, fallback, and stale states", () => {
