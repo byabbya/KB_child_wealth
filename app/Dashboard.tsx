@@ -934,36 +934,41 @@ function RecommendationRationale({
     },
   ];
   return (
-    <section
+    <details
       className={`recommendation-rationale ${rationale.state}`}
-      aria-labelledby="recommendation-rationale-title"
-      aria-live="polite"
     >
-      <div className="recommendation-rationale-heading">
+      <summary className="recommendation-rationale-heading">
         <span className="rationale-spark" aria-hidden="true">AI</span>
         <h3 id="recommendation-rationale-title">AI 추천 근거</h3>
         {sample ? <span className="sample-analysis-badge">샘플</span> : null}
+        <span className="rationale-toggle" aria-hidden="true">
+          <span className="rationale-toggle-open">펼쳐보기</span>
+          <span className="rationale-toggle-close">접기</span>
+          <i />
+        </span>
+      </summary>
+      <div className="recommendation-rationale-body" aria-live="polite">
+        <p>{sample ? "AI 실행 전 화면 확인용 샘플 분석입니다. 분석 버튼을 누르면 실제 AI 결과로 교체됩니다." : rationale.intro}</p>
+        <ol className="ai-evidence-flow">
+          {sections.map((section, index) => (
+            <li key={section.label}>
+              <span className="ai-evidence-step">{index + 1}</span>
+              <div>
+                <strong>{section.label}</strong>
+                <p>{section.body}</p>
+                {section.meta ? <small>{section.meta}</small> : null}
+              </div>
+            </li>
+          ))}
+        </ol>
+        {usedSources.length > 0 ? (
+          <div className="ai-market-sources">
+            <strong>사용한 시장자료</strong>
+            <span>{usedSources.slice(0, 3).join(" · ")}</span>
+          </div>
+        ) : null}
       </div>
-      <p>{sample ? "AI 실행 전 화면 확인용 샘플 분석입니다. 분석 버튼을 누르면 실제 AI 결과로 교체됩니다." : rationale.intro}</p>
-      <ol className="ai-evidence-flow">
-        {sections.map((section, index) => (
-          <li key={section.label}>
-            <span className="ai-evidence-step">{index + 1}</span>
-            <div>
-              <strong>{section.label}</strong>
-              <p>{section.body}</p>
-              {section.meta ? <small>{section.meta}</small> : null}
-            </div>
-          </li>
-        ))}
-      </ol>
-      {usedSources.length > 0 ? (
-        <div className="ai-market-sources">
-          <strong>사용한 시장자료</strong>
-          <span>{usedSources.slice(0, 3).join(" · ")}</span>
-        </div>
-      ) : null}
-    </section>
+    </details>
   );
 }
 

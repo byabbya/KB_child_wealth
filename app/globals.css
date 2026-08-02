@@ -1765,8 +1765,15 @@ footer p {
 
 .recommendation-rationale-heading {
   align-items: center;
+  cursor: pointer;
   display: flex;
   gap: 8px;
+  list-style: none;
+  min-height: 44px;
+}
+
+.recommendation-rationale-heading::-webkit-details-marker {
+  display: none;
 }
 
 .recommendation-rationale-heading h3 {
@@ -1794,15 +1801,57 @@ footer p {
   color: #686d73;
   font-size: 10px;
   font-weight: 800;
-  margin-left: auto;
   padding: 4px 8px;
 }
 
-.recommendation-rationale > p {
+.recommendation-rationale-body > p {
   color: #6e655a;
   font-size: 11px;
   line-height: 1.5;
   margin: 9px 0 11px;
+}
+
+.rationale-toggle {
+  align-items: center;
+  color: #6d665e;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  gap: 7px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.rationale-toggle i {
+  border-bottom: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  display: block;
+  height: 7px;
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform 160ms ease;
+  width: 7px;
+}
+
+.rationale-toggle-close {
+  display: none;
+}
+
+.recommendation-rationale[open] .rationale-toggle-open {
+  display: none;
+}
+
+.recommendation-rationale[open] .rationale-toggle-close {
+  display: inline;
+}
+
+.recommendation-rationale[open] .rationale-toggle i {
+  transform: rotate(225deg) translate(-1px, -1px);
+}
+
+.recommendation-rationale-heading:focus-visible {
+  border-radius: 8px;
+  outline: 3px solid rgba(255, 188, 0, 0.3);
+  outline-offset: 3px;
 }
 
 .recommendation-rationale ul {
@@ -3193,9 +3242,13 @@ body {
     width: 100%;
   }
 
-  .recommendation-rationale > p,
+  .recommendation-rationale-body > p,
   .recommendation-rationale li {
     font-size: 14px;
+  }
+
+  .rationale-toggle {
+    font-size: 12px;
   }
 
   .allocation-comparison {
