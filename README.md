@@ -26,6 +26,12 @@ npm run dev
 
 로컬과 공개 배포 모두 서버 측 `/api/portfolio-advice`가 Google Gemini를 호출합니다. `.env.example`을 참고해 Git에 포함되지 않는 `.env.local`에 `GEMINI_API_KEY`를 입력할 수 있으며, `GEMINI_MODEL`의 기본값은 `gemini-2.5-flash`입니다. 공개 배포에서는 같은 키를 Sites 서버 비밀값으로 등록합니다.
 
+```dotenv
+# 프로젝트 루트의 .env.local
+GEMINI_API_KEY=발급받은_API_키
+GEMINI_MODEL=gemini-2.5-flash
+```
+
 키가 없으면 화면에 `Gemini 연결 실패·규칙 기반 추천`을 표시하며 AI가 실행된 것처럼 표현하지 않습니다. API 키는 브라우저, 응답, 로그 또는 저장소에 두지 않습니다.
 
 ## 포트폴리오 화면

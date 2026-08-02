@@ -326,6 +326,63 @@ export default function Dashboard() {
         : plan,
     [currentAdvice, data, plan],
   );
+  const sampleAdvice = useMemo<AiAdvice>(() => ({
+    status: "validated",
+    provider: "sample",
+    model: null,
+    message: "AI 실행 전 화면 확인용 샘플 분석입니다.",
+    consideredFactors: ["적금 우선 선호", `${state.horizonYears}년 투자기간`, "ETF·미국시장 선호"],
+    adjustments: [],
+    originalProposal: null,
+    proposal: {
+      allocations: plan.target,
+      allocationRationales: plan.recommendations.map((item) => ({
+        assetClass: item.assetClass,
+        rationale: item.reason,
+        evidenceIds: item.assetClass === "overseasEtf"
+          ? ["indicator-us-equity-trend", "indicator-krw-usd-risk"]
+          : [],
+      })),
+      assumptions: ["화면 확인용 샘플 시장자료"],
+      summary: "적금 비중을 중심으로 안전자산을 확보하고 ETF로 국내외 시장을 나눈 샘플 구성입니다.",
+    },
+    analysis: {
+      user: {
+        status: "sample",
+        summary: `${plan.preference.label}과 ${state.horizonYears}년 투자기간을 반영한 샘플 사용자 분석입니다.`,
+        preferenceInsights: ["적금 우선", "ETF 중심", "미국시장 선호"],
+        goalGapInsight: `현재 자산에서 목표금액까지 약 ${compactCurrency(Math.max(0, child.goalAmount - plan.current.total))}이 더 필요합니다.`,
+        concentrationRisks: ["예·적금과 투자자산의 비중을 함께 점검했습니다."],
+        liquidityNeeds: [`월 ${compactCurrency(state.monthlyContribution)} 적립 계획을 반영했습니다.`],
+      },
+      market: {
+        status: "sample",
+        summary: "미국 주식의 장기 성장 기대와 환율 변동 위험을 함께 고려한 샘플 시장 분석입니다.",
+        domesticOutlook: "cautious",
+        usOutlook: "positive",
+        etfOutlook: "positive",
+        individualOutlook: "cautious",
+        confidence: "medium",
+        riskFactors: ["국내시장 변동성", "원·달러 환율 변화"],
+        evidenceIds: [
+          "indicator-kr-equity-volatility",
+          "indicator-us-equity-trend",
+          "indicator-krw-usd-risk",
+        ],
+      },
+    },
+    marketDataStatus: {
+      fresh: true,
+      status: "fresh",
+      asOf: prototypeCatalog.marketSnapshot.asOf,
+      evidenceIds: [
+        "indicator-kr-equity-volatility",
+        "indicator-us-equity-trend",
+        "indicator-krw-usd-risk",
+      ],
+      warning: null,
+    },
+  }), [child.goalAmount, plan, state.horizonYears, state.monthlyContribution]);
   const targetProgress = Math.min(100, (plan.current.total / child.goalAmount) * 100);
 
   function openMock(
@@ -445,16 +502,16 @@ export default function Dashboard() {
   }
 
   const aiResultLabel = aiLoading
-    ? "Gemini가 사용자 조건과 시장자료를 분석하고 있습니다."
+    ? "AI가 사용자 조건과 시장자료를 분석하고 있습니다."
     : hasStaleAdvice
       ? "입력 내용이 변경되어 AI 재분석이 필요합니다."
       : currentAdvice?.status === "validated"
-        ? "Gemini 추천·규칙 검증 통과"
+        ? "AI 추천·규칙 검증 통과"
         : currentAdvice?.status === "adjusted"
-          ? "Gemini 추천·일부 비중 보정"
+          ? "AI 추천·일부 비중 보정"
           : currentAdvice?.status === "fallback"
-            ? "Gemini 연결 실패·규칙 기반 추천"
-            : "현재는 선호와 투자기간을 반영한 기본 추천입니다.";
+            ? "AI 연결 실패·규칙 기반 추천"
+            : "샘플 AI 분석 결과 · 실제 AI 분석 전";
   const recommendationRationale = buildRecommendationRationale({
     advice: currentAdvice,
     loading: aiLoading,
@@ -593,7 +650,7 @@ export default function Dashboard() {
                     {plan.preference.label} · {state.horizonYears}년
                   </span>
                   <button className="ai-run-button" onClick={requestAiAdvice} disabled={aiLoading}>
-                    {aiLoading ? "Gemini 분석 중…" : currentAdvice ? "Gemini 다시 분석" : "Gemini 포트폴리오 분석"}
+                    {aiLoading ? "AI 분석 중…" : currentAdvice ? "AI 다시 분석" : "AI 포트폴리오 분석"}
                   </button>
                 </div>
               </div>
@@ -609,9 +666,9 @@ export default function Dashboard() {
                 <div className="donut-arrow" aria-hidden="true">→</div>
                 <div className="recommended-portfolio-column">
                   <PortfolioDonut
-                    title={currentAdvice && currentAdvice.status !== "fallback" ? "AI 추천 포트폴리오" : "기본 추천 포트폴리오"}
+                    title={currentAdvice && currentAdvice.status !== "fallback" ? "AI 추천 포트폴리오" : "AI 추천 포트폴리오 · 샘플"}
                     weights={effectivePlan.target}
-                    centerTop={currentAdvice && currentAdvice.status !== "fallback" ? "AI 추천" : "기본 추천"}
+                    centerTop={currentAdvice && currentAdvice.status !== "fallback" ? "AI 추천" : "샘플 추천"}
                     centerValue="100%"
                     focusedAssetClass={focusedAssetClass}
                   />
@@ -620,8 +677,9 @@ export default function Dashboard() {
               <div className="recommendation-rationale-slot">
                 <RecommendationRationale
                   rationale={recommendationRationale}
-                  advice={currentAdvice}
+                  advice={currentAdvice ?? sampleAdvice}
                   plan={effectivePlan}
+                  sample={!currentAdvice}
                 />
               </div>
               <PortfolioAllocationComparison
@@ -630,18 +688,6 @@ export default function Dashboard() {
                 setFocusedAssetClass={setFocusedAssetClass}
               />
             </section>
-
-            <PreviousGoalComparison
-              previousPlan={previousPlan}
-              currentPlan={effectivePlan}
-              previousProfile={state.previousProfile}
-              currentProfile={{
-                horizonYears: state.horizonYears,
-                monthlyContribution: state.monthlyContribution,
-                assetRanking: state.assetRanking,
-                strategyRanking: state.strategyRanking,
-              }}
-            />
 
             <section className="panel specification-section">
               <div className="section-heading">
@@ -680,7 +726,19 @@ export default function Dashboard() {
           />
         ) : null}
 
-        {state.activeTab === "rebalance" ? <RebalanceView plan={effectivePlan} /> : null}
+        {state.activeTab === "rebalance" ? (
+          <RebalanceView
+            plan={effectivePlan}
+            previousPlan={previousPlan}
+            previousProfile={state.previousProfile}
+            currentProfile={{
+              horizonYears: state.horizonYears,
+              monthlyContribution: state.monthlyContribution,
+              assetRanking: state.assetRanking,
+              strategyRanking: state.strategyRanking,
+            }}
+          />
+        ) : null}
 
         <footer>
           <strong>KB 우리 아이 자산관리</strong>
@@ -780,10 +838,12 @@ function RecommendationRationale({
   rationale,
   advice,
   plan,
+  sample,
 }: {
   rationale: ReturnType<typeof buildRecommendationRationale>;
   advice: AiAdvice | null;
   plan: PortfolioPlan;
+  sample: boolean;
 }) {
   const outlookLabels = {
     positive: "긍정",
@@ -821,8 +881,8 @@ function RecommendationRationale({
       body:
         market?.summary ??
         (advice?.status === "fallback"
-          ? "Gemini가 연결되지 않아 시장 판단을 비중에 반영하지 않았습니다."
-          : "Gemini 분석 전에는 시장 판단을 비중에 반영하지 않습니다."),
+          ? "AI가 연결되지 않아 시장 판단을 비중에 반영하지 않았습니다."
+          : "AI 분석 전에는 시장 판단을 비중에 반영하지 않습니다."),
       meta: market
         ? `국내 ${outlookLabels[market.domesticOutlook]} · 미국 ${outlookLabels[market.usOutlook]} · 신뢰도 ${market.confidence}`
         : null,
@@ -854,8 +914,9 @@ function RecommendationRationale({
       <div className="recommendation-rationale-heading">
         <span className="rationale-spark" aria-hidden="true">AI</span>
         <h3 id="recommendation-rationale-title">AI 추천 근거</h3>
+        {sample ? <span className="sample-analysis-badge">샘플</span> : null}
       </div>
-      <p>{rationale.intro}</p>
+      <p>{sample ? "AI 실행 전 화면 확인용 샘플 분석입니다. 분석 버튼을 누르면 실제 AI 결과로 교체됩니다." : rationale.intro}</p>
       <ol className="ai-evidence-flow">
         {sections.map((section, index) => (
           <li key={section.label}>
@@ -1494,10 +1555,27 @@ function AssetsList({
   );
 }
 
-function RebalanceView({ plan }: { plan: ReturnType<typeof generatePlan> }) {
+function RebalanceView({
+  plan,
+  previousPlan,
+  previousProfile,
+  currentProfile,
+}: {
+  plan: PortfolioPlan;
+  previousPlan: PortfolioPlan;
+  previousProfile: PreferenceProfile;
+  currentProfile: PreferenceProfile;
+}) {
   return (
-    <section className="rebalance-layout">
-      <div className="panel">
+    <>
+      <PreviousGoalComparison
+        previousPlan={previousPlan}
+        currentPlan={plan}
+        previousProfile={previousProfile}
+        currentProfile={currentProfile}
+      />
+      <section className="rebalance-layout">
+        <div className="panel">
         <div className="section-heading">
           <div>
             <span className="eyebrow">매도보다 새 자금 우선</span>
@@ -1523,8 +1601,8 @@ function RebalanceView({ plan }: { plan: ReturnType<typeof generatePlan> }) {
             </div>
           ))}
         </div>
-      </div>
-      <div className="panel maturity-panel">
+        </div>
+        <div className="panel maturity-panel">
         <span className="eyebrow">해지 대신 만기 예약</span>
         <h2>예·적금 유지 판단</h2>
         {plan.rebalancing.holds.map((item: {
@@ -1542,7 +1620,8 @@ function RebalanceView({ plan }: { plan: ReturnType<typeof generatePlan> }) {
             <div className="reservation">↳ {item.reservation}</div>
           </article>
         ))}
-      </div>
-    </section>
+        </div>
+      </section>
+    </>
   );
 }

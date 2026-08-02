@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 async function render() {
@@ -21,20 +22,22 @@ test("renders the KB child asset management dashboard", async () => {
   assert.match(html, /KB스타뱅킹/);
   assert.match(html, /현재 가입 가능한 KB국민은행 및 KB증권 상품/);
   assert.match(html, /포트폴리오 명세서/);
-  assert.match(html, /Gemini 포트폴리오 분석/);
+  assert.match(html, /AI 포트폴리오 분석/);
   assert.match(html, /현재 포트폴리오/);
-  assert.match(html, /기본 추천 포트폴리오/);
+  assert.match(html, /AI 추천 포트폴리오 · 샘플/);
+  assert.match(html, /샘플 AI 분석 결과 · 실제 AI 분석 전/);
+  assert.match(html, /AI 실행 전 화면 확인용 샘플 분석/);
   assert.match(html, /AI 추천 근거/);
   assert.match(html, /사용자 분석/);
   assert.match(html, /시장 분석/);
   assert.match(html, /최종 추천/);
   assert.match(html, /규칙 확인/);
   assert.match(html, /KB 상품 연결/);
-  assert.match(html, /현재 입력을 바탕으로 구성한 기본 추천의 근거입니다/);
   assert.match(html, /추천 상품/);
   assert.match(html, /목표 포트폴리오.*추천 상품.*리밸런싱 제안/s);
-  assert.match(html, /지난 목표 대비 변화/);
-  assert.match(html, /이전 목표.*현재 목표/s);
+  assert.doesNotMatch(html, /지난 목표 대비 변화/);
+  assert.doesNotMatch(html, /Gemini 포트폴리오 분석/);
+  assert.match(html, /donut-arrow[^>]*>→</);
   assert.match(html, /자산군.*현재.*추천.*차이/s);
   assert.doesNotMatch(html, /10년 증여재산공제 시뮬레이션|추가 증여 시뮬레이션/);
   assert.doesNotMatch(html, /샘플 자산 데이터|고정 시나리오|실제 자녀·계좌 정보를 조회하거나 연결하지 않습니다/);
@@ -45,4 +48,11 @@ test("renders the KB child asset management dashboard", async () => {
   assert.doesNotMatch(html, /공모전 데모|DEMO|로그인|signin-with-chatgpt|KB증권 계좌 연결/);
   assert.doesNotMatch(html, /Ollama|OLLAMA/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/);
+});
+
+test("places previous-goal comparison inside the rebalancing view", async () => {
+  const source = await readFile(new URL("../app/Dashboard.tsx", import.meta.url), "utf8");
+  const rebalanceView = source.slice(source.indexOf("function RebalanceView"));
+  assert.match(rebalanceView, /<PreviousGoalComparison/);
+  assert.match(rebalanceView, /이번 달 리밸런싱 제안/);
 });
