@@ -312,77 +312,33 @@ export default function Dashboard() {
     aiAdvice && aiAdviceSignature && aiAdviceSignature !== aiInputSignature,
   );
 
+  const defaultAiInputSignature = JSON.stringify({
+    assetRanking: initialState.assetRanking,
+    strategyRanking: initialState.strategyRanking,
+    horizonYears: initialState.horizonYears,
+    monthlyContribution: initialState.monthlyContribution,
+    proposedGift: initialState.proposedGift,
+    marketSnapshotId: prototypeCatalog.marketSnapshot.snapshotId,
+  });
+  const sampleAdvice = aiInputSignature === defaultAiInputSignature
+    ? prototypeCatalog.sampleAiAdvice as unknown as AiAdvice
+    : null;
+  const displayedAdvice = currentAdvice ?? sampleAdvice;
+
   const effectivePlan = useMemo(
     () =>
-      currentAdvice && currentAdvice.status !== "fallback"
+      displayedAdvice && displayedAdvice.status !== "fallback"
         ? applyAdvisorProposal({
             basePlan: plan,
-            proposal: currentAdvice.proposal,
+            proposal: displayedAdvice.proposal,
             data,
             bankProducts: prototypeCatalog.bankProducts,
             investmentTaxRules: prototypeCatalog.investmentTaxRules,
             feeAssumptions: prototypeCatalog.feeAssumptions,
           })
         : plan,
-    [currentAdvice, data, plan],
+    [displayedAdvice, data, plan],
   );
-  const sampleAdvice = useMemo<AiAdvice>(() => ({
-    status: "validated",
-    provider: "sample",
-    model: null,
-    message: "AI 실행 전 화면 확인용 샘플 분석입니다.",
-    consideredFactors: ["적금 우선 선호", `${state.horizonYears}년 투자기간`, "ETF·미국시장 선호"],
-    adjustments: [],
-    originalProposal: null,
-    proposal: {
-      allocations: plan.target,
-      allocationRationales: plan.recommendations.map((item) => ({
-        assetClass: item.assetClass,
-        rationale: item.reason,
-        evidenceIds: item.assetClass === "overseasEtf"
-          ? ["indicator-us-equity-trend", "indicator-krw-usd-risk"]
-          : [],
-      })),
-      assumptions: ["화면 확인용 샘플 시장자료"],
-      summary: "적금 비중을 중심으로 안전자산을 확보하고 ETF로 국내외 시장을 나눈 샘플 구성입니다.",
-    },
-    analysis: {
-      user: {
-        status: "sample",
-        summary: `${plan.preference.label}과 ${state.horizonYears}년 투자기간을 반영한 샘플 사용자 분석입니다.`,
-        preferenceInsights: ["적금 우선", "ETF 중심", "미국시장 선호"],
-        goalGapInsight: `현재 자산에서 목표금액까지 약 ${compactCurrency(Math.max(0, child.goalAmount - plan.current.total))}이 더 필요합니다.`,
-        concentrationRisks: ["예·적금과 투자자산의 비중을 함께 점검했습니다."],
-        liquidityNeeds: [`월 ${compactCurrency(state.monthlyContribution)} 적립 계획을 반영했습니다.`],
-      },
-      market: {
-        status: "sample",
-        summary: "미국 주식의 장기 성장 기대와 환율 변동 위험을 함께 고려한 샘플 시장 분석입니다.",
-        domesticOutlook: "cautious",
-        usOutlook: "positive",
-        etfOutlook: "positive",
-        individualOutlook: "cautious",
-        confidence: "medium",
-        riskFactors: ["국내시장 변동성", "원·달러 환율 변화"],
-        evidenceIds: [
-          "indicator-kr-equity-volatility",
-          "indicator-us-equity-trend",
-          "indicator-krw-usd-risk",
-        ],
-      },
-    },
-    marketDataStatus: {
-      fresh: true,
-      status: "fresh",
-      asOf: prototypeCatalog.marketSnapshot.asOf,
-      evidenceIds: [
-        "indicator-kr-equity-volatility",
-        "indicator-us-equity-trend",
-        "indicator-krw-usd-risk",
-      ],
-      warning: null,
-    },
-  }), [child.goalAmount, plan, state.horizonYears, state.monthlyContribution]);
   const targetProgress = Math.min(100, (plan.current.total / child.goalAmount) * 100);
 
   function openMock(
@@ -511,9 +467,11 @@ export default function Dashboard() {
           ? "AI 추천·일부 비중 보정"
           : currentAdvice?.status === "fallback"
             ? "AI 연결 실패·규칙 기반 추천"
-            : "샘플 AI 분석 결과 · 실제 AI 분석 전";
+            : sampleAdvice
+              ? "샘플 AI 분석 결과 · 실제 AI 분석 전"
+              : "입력 조건 기반 규칙 추천";
   const recommendationRationale = buildRecommendationRationale({
-    advice: currentAdvice,
+    advice: displayedAdvice,
     loading: aiLoading,
     stale: hasStaleAdvice,
     context: {
@@ -650,7 +608,7 @@ export default function Dashboard() {
                     {plan.preference.label} · {state.horizonYears}년
                   </span>
                   <button className="ai-run-button" onClick={requestAiAdvice} disabled={aiLoading}>
-                    {aiLoading ? "AI 분석 중…" : currentAdvice ? "AI 다시 분석" : "AI 포트폴리오 분석"}
+                    {aiLoading ? "AI 분석 중…" : "AI 포트폴리오 분석"}
                   </button>
                 </div>
               </div>
@@ -666,9 +624,21 @@ export default function Dashboard() {
                 <div className="donut-arrow" aria-hidden="true" />
                 <div className="recommended-portfolio-column">
                   <PortfolioDonut
-                    title={currentAdvice && currentAdvice.status !== "fallback" ? "AI 추천 포트폴리오" : "AI 추천 포트폴리오 · 샘플"}
+                    title={currentAdvice?.status === "fallback"
+                      ? "규칙 기반 추천 포트폴리오"
+                      : currentAdvice
+                        ? "AI 추천 포트폴리오"
+                        : sampleAdvice
+                          ? "AI 추천 포트폴리오 · 샘플"
+                          : "추천 포트폴리오 · 기준안"}
                     weights={effectivePlan.target}
-                    centerTop={currentAdvice && currentAdvice.status !== "fallback" ? "AI 추천" : "샘플 추천"}
+                    centerTop={currentAdvice?.status === "fallback"
+                      ? "규칙 기준안"
+                      : currentAdvice
+                        ? "AI 추천"
+                        : sampleAdvice
+                          ? "샘플 추천"
+                          : "기준안"}
                     centerValue="100%"
                     focusedAssetClass={focusedAssetClass}
                   />
@@ -677,9 +647,9 @@ export default function Dashboard() {
               <div className="recommendation-rationale-slot">
                 <RecommendationRationale
                   rationale={recommendationRationale}
-                  advice={currentAdvice ?? sampleAdvice}
+                  advice={displayedAdvice}
                   plan={effectivePlan}
-                  sample={!currentAdvice}
+                  sample={!currentAdvice && Boolean(sampleAdvice)}
                 />
               </div>
               <PortfolioAllocationComparison

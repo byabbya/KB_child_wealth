@@ -7,6 +7,7 @@ import productPoliciesYaml from "@/data/kb_product_policies.yaml?raw";
 import scenario from "@/data/sample_scenario.json";
 import productSources from "@/data/product_sources.json";
 import marketSnapshot from "@/data/market_snapshot.json";
+import sampleAiAdvice from "@/data/sample_ai_advice.json";
 import { parseCsv } from "./engine.mjs";
 import { parsePolicyDocument } from "./rules.mjs";
 
@@ -15,6 +16,7 @@ export const prototypeCatalog = {
   securitiesAssets: parseCsv(securitiesCsv),
   data: scenario,
   marketSnapshot,
+  sampleAiAdvice,
   productSources,
   giftTaxRules: parsePolicyDocument(giftTaxYaml),
   investmentTaxRules: parsePolicyDocument(investmentTaxYaml),

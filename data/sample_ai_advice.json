@@ -1,0 +1,126 @@
+{
+  "status": "validated",
+  "provider": "sample",
+  "model": "gemini-2.5-flash",
+  "message": "저장된 Gemini 분석 결과를 초기 화면에 표시합니다.",
+  "consideredFactors": [
+    "자녀의 대학 입학 준비 목표 (8천만원, 2034년 3월 1일)",
+    "월 50만원의 정기적인 납입",
+    "사용자의 자산 및 투자 방식 선호도",
+    "현재 포트폴리오의 예적금 집중도",
+    "국내 및 미국 주식시장의 전망과 위험 요인",
+    "ETF를 활용한 분산 투자 가능성",
+    "증여세 추정치 및 관련 정책 사실"
+  ],
+  "adjustments": [],
+  "originalProposal": null,
+  "proposal": {
+    "allocations": {
+      "cash": 10,
+      "savings": 31,
+      "deposit": 22,
+      "fund": 9,
+      "domesticEtf": 10,
+      "overseasEtf": 12,
+      "domesticStock": 3,
+      "overseasStock": 3
+    },
+    "allocationRationales": [
+      {
+        "assetClass": "cash",
+        "rationale": "장기 목표 자금의 분산배분 점검에 따라 현금성 자산의 일정 비중을 유지하여 유동성을 확보하고 시장 변동성에 대비합니다.",
+        "evidenceIds": ["kb-research-long-term-allocation"]
+      },
+      {
+        "assetClass": "savings",
+        "rationale": "사용자의 저축 선호도와 장기 목표를 고려하여 안정적인 자산 배분을 유지합니다.",
+        "evidenceIds": []
+      },
+      {
+        "assetClass": "deposit",
+        "rationale": "사용자의 예금 선호도와 금리 변화에 따른 예금의 역할을 고려하여 안정적인 자산 배분을 유지합니다.",
+        "evidenceIds": ["news-rate-duration"]
+      },
+      {
+        "assetClass": "fund",
+        "rationale": "기준안의 펀드 비중을 유지하여 분산 투자를 도모합니다.",
+        "evidenceIds": []
+      },
+      {
+        "assetClass": "domesticEtf",
+        "rationale": "사용자의 ETF 선호도와 국내 주식시장의 분산투자 필요성을 고려하여 국내 ETF 비중을 확대합니다.",
+        "evidenceIds": ["indicator-kr-equity-volatility", "kb-research-etf-diversification"]
+      },
+      {
+        "assetClass": "overseasEtf",
+        "rationale": "사용자의 ETF 및 미국 시장 선호도, 글로벌 주식시장의 성장 기대와 ETF를 활용한 지역 분산 방안을 고려하여 해외 ETF 비중을 확대합니다.",
+        "evidenceIds": ["indicator-us-equity-trend", "news-global-diversification", "kb-research-etf-diversification"]
+      },
+      {
+        "assetClass": "domesticStock",
+        "rationale": "국내 주식시장의 변동성을 고려하여 개별 종목 비중은 제한적으로 유지하며 사용자의 선호도를 반영합니다.",
+        "evidenceIds": ["indicator-kr-equity-volatility"]
+      },
+      {
+        "assetClass": "overseasStock",
+        "rationale": "미국 주식시장의 장기 성장 기대를 반영하되 환율 변동 위험을 고려하여 비중을 제한합니다.",
+        "evidenceIds": ["indicator-us-equity-trend", "indicator-krw-usd-risk"]
+      }
+    ],
+    "assumptions": [
+      "시장 스냅샷은 2026년 7월 30일 기준입니다.",
+      "월 50만원의 정기적인 납입이 지속된다고 가정합니다.",
+      "추천 비중은 상품 가입 전 최신 정보 확인이 필요합니다."
+    ],
+    "summary": "김민서님의 대학 입학 준비 목표를 위해 예적금 비중을 유지하면서 ETF를 활용한 국내외 성장자산 투자를 확대하는 포트폴리오입니다. 시장 변동성과 환율 위험을 고려해 분산투자를 강화하고 선호 순위를 반영했습니다."
+  },
+  "analysis": {
+    "user": {
+      "status": "sample",
+      "summary": "김민서님은 대학 입학 준비를 목표로 8천만원을 모으고 있으며 현재 총자산은 1천만원입니다. 월 50만원씩 8년간 납입할 계획이고, 예적금을 우선하면서 ETF와 미국시장 투자도 선호합니다.",
+      "preferenceInsights": [
+        "자산 선호는 적금, 예금, 주식, 채권 순입니다.",
+        "투자 방식 선호는 ETF, 개별종목, 미국시장, 국내시장 순입니다."
+      ],
+      "goalGapInsight": "현재 자산과 목표금액의 차이는 약 7천만원이며 월 납입 계획과 투자기간을 함께 반영했습니다.",
+      "concentrationRisks": ["현재 포트폴리오는 예적금 비중이 49%로 높은 편입니다."],
+      "liquidityNeeds": ["8년의 투자기간과 월 50만원의 신규 납입 계획을 반영합니다."]
+    },
+    "market": {
+      "status": "sample",
+      "summary": "국내 주식시장은 업종별 등락 차이가 커 분산투자가 필요하고, 미국 주식시장은 장기 성장 기대와 가격 부담이 함께 있습니다. 해외자산의 환율 위험을 고려해 ETF 중심으로 지역을 나누는 접근을 반영했습니다.",
+      "domesticOutlook": "cautious",
+      "usOutlook": "positive",
+      "etfOutlook": "positive",
+      "individualOutlook": "neutral",
+      "confidence": "medium",
+      "riskFactors": [
+        "국내 주식시장 업종별 등락 차이",
+        "미국 주식시장 가격 부담",
+        "원·달러 환율 변동 위험"
+      ],
+      "evidenceIds": [
+        "indicator-kr-equity-volatility",
+        "indicator-us-equity-trend",
+        "indicator-krw-usd-risk",
+        "news-global-diversification",
+        "kb-research-etf-diversification"
+      ]
+    }
+  },
+  "marketDataStatus": {
+    "fresh": true,
+    "status": "fresh",
+    "asOf": "2026-07-30",
+    "evidenceIds": [
+      "indicator-kr-equity-volatility",
+      "indicator-us-equity-trend",
+      "indicator-krw-usd-risk",
+      "news-global-diversification",
+      "news-rate-duration",
+      "kb-research-long-term-allocation",
+      "kb-research-etf-diversification"
+    ],
+    "warning": null
+  }
+}

@@ -25,8 +25,10 @@ test("renders the KB child asset management dashboard", async () => {
   assert.match(html, /AI 포트폴리오 분석/);
   assert.match(html, /현재 포트폴리오/);
   assert.match(html, /AI 추천 포트폴리오 · 샘플/);
+  assert.match(html, /AI 추천 포트폴리오 · 샘플: 입출금·대기자금 10\.0%, 적금 31\.0%, 예금 22\.0%/);
   assert.match(html, /샘플 AI 분석 결과 · 실제 AI 분석 전/);
   assert.match(html, /AI 실행 전 화면 확인용 샘플 분석/);
+  assert.match(html, /예적금 비중을 유지하면서 ETF를 활용한 국내외 성장자산 투자를 확대/);
   assert.match(html, /AI 추천 근거/);
   assert.match(html, /사용자 분석/);
   assert.match(html, /시장 분석/);
@@ -37,6 +39,7 @@ test("renders the KB child asset management dashboard", async () => {
   assert.match(html, /목표 포트폴리오.*추천 상품.*리밸런싱 제안/s);
   assert.doesNotMatch(html, /지난 목표 대비 변화/);
   assert.doesNotMatch(html, /Gemini 포트폴리오 분석/);
+  assert.doesNotMatch(html, /AI 다시 분석/);
   assert.match(html, /donut-arrow/);
   assert.doesNotMatch(html, /donut-arrow[^>]*>→</);
   assert.match(html, /자산군.*현재.*추천.*차이/s);
@@ -53,6 +56,8 @@ test("renders the KB child asset management dashboard", async () => {
 
 test("places previous-goal comparison inside the rebalancing view", async () => {
   const source = await readFile(new URL("../app/Dashboard.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /AI 다시 분석/);
+  assert.match(source, /규칙 기반 추천 포트폴리오/);
   const rebalanceView = source.slice(source.indexOf("function RebalanceView"));
   assert.match(rebalanceView, /<PreviousGoalComparison/);
   assert.match(rebalanceView, /이번 달 리밸런싱 제안/);
