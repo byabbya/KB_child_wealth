@@ -1656,12 +1656,19 @@ footer p {
   align-items: center;
   background: var(--donut-gradient);
   border-radius: 50%;
+  cursor: pointer;
   display: flex;
   height: clamp(210px, 24vw, 270px);
   justify-content: center;
+  outline: none;
   position: relative;
+  touch-action: manipulation;
   transition: filter 160ms ease, transform 160ms ease;
   width: clamp(210px, 24vw, 270px);
+}
+
+.portfolio-donut:focus-visible {
+  box-shadow: 0 0 0 4px rgba(255, 188, 0, 0.28), 0 0 0 1px #8b6f00;
 }
 
 .portfolio-donut::after {
@@ -1685,6 +1692,7 @@ footer p {
   flex-direction: column;
   gap: 4px;
   max-width: 130px;
+  pointer-events: none;
   position: relative;
   text-align: center;
   z-index: 1;
@@ -1700,6 +1708,13 @@ footer p {
   color: #25211e;
   font-size: 20px;
   line-height: 1.15;
+}
+
+.donut-center small {
+  color: #8a8177;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .donut-arrow {
@@ -3164,6 +3179,10 @@ body {
 
   .donut-center strong {
     font-size: 17px;
+  }
+
+  .donut-center small {
+    font-size: 9px;
   }
 
   .recommendation-rationale-slot {

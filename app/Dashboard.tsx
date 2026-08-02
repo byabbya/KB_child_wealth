@@ -1,6 +1,14 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState, type CSSProperties } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+} from "react";
 import { prototypeCatalog } from "@/lib/catalog";
 import {
   ASSET_CLASSES,
@@ -620,6 +628,7 @@ export default function Dashboard() {
                   centerTop="현재 총자산"
                   centerValue={compactCurrency(plan.current.total)}
                   focusedAssetClass={focusedAssetClass}
+                  setFocusedAssetClass={setFocusedAssetClass}
                 />
                 <div className="donut-arrow" aria-hidden="true" />
                 <div className="recommended-portfolio-column">
@@ -641,6 +650,7 @@ export default function Dashboard() {
                           : "기준안"}
                     centerValue="100%"
                     focusedAssetClass={focusedAssetClass}
+                    setFocusedAssetClass={setFocusedAssetClass}
                   />
                 </div>
               </div>
@@ -775,29 +785,77 @@ function PortfolioDonut({
   centerTop,
   centerValue,
   focusedAssetClass,
+  setFocusedAssetClass,
 }: {
   title: string;
   weights: Record<string, number>;
   centerTop: string;
   centerValue: string;
   focusedAssetClass: string | null;
+  setFocusedAssetClass: React.Dispatch<React.SetStateAction<string | null>>;
 }) {
-  const description = ASSET_CLASSES.filter((key: string) => Number(weights[key]) > 0)
+  const visibleAssetClasses = ASSET_CLASSES.filter((key: string) => Number(weights[key]) > 0);
+  const description = visibleAssetClasses
     .map((key: string) => `${shortAssetLabel(key)} ${Number(weights[key]).toFixed(1)}%`)
     .join(", ");
   const focusedWeight = focusedAssetClass ? Number(weights[focusedAssetClass] ?? 0) : null;
+  const hasFocusedWeight = focusedAssetClass != null && focusedWeight != null;
+
+  const selectAssetAtPointer = (event: PointerEvent<HTMLDivElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const radius = Math.min(bounds.width, bounds.height) / 2;
+    const x = event.clientX - (bounds.left + bounds.width / 2);
+    const y = event.clientY - (bounds.top + bounds.height / 2);
+    const distance = Math.hypot(x, y);
+
+    // 가운데 정보 영역은 선택 영역에서 제외하고 실제 도넛 조각만 반응시킵니다.
+    if (distance < radius * 0.58 || distance > radius) return;
+
+    const clockwiseAngleFromTop = (Math.atan2(y, x) * 180 / Math.PI + 450) % 360;
+    const position = clockwiseAngleFromTop / 3.6;
+    let cumulative = 0;
+    const selected = visibleAssetClasses.find((key: string) => {
+      cumulative += Number(weights[key]);
+      return position < cumulative;
+    });
+
+    if (selected) {
+      setFocusedAssetClass((current) => current === selected ? null : selected);
+    }
+  };
+
+  const moveKeyboardSelection = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape") {
+      setFocusedAssetClass(null);
+      return;
+    }
+    if (!["Enter", " ", "ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp"].includes(event.key)) return;
+    event.preventDefault();
+    if (visibleAssetClasses.length === 0) return;
+    const currentIndex = focusedAssetClass ? visibleAssetClasses.indexOf(focusedAssetClass) : -1;
+    const direction = event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 1;
+    const nextIndex = currentIndex < 0
+      ? 0
+      : (currentIndex + direction + visibleAssetClasses.length) % visibleAssetClasses.length;
+    setFocusedAssetClass(visibleAssetClasses[nextIndex]);
+  };
+
   return (
     <figure className="portfolio-donut-card">
       <figcaption>{title}</figcaption>
       <div
         className={`portfolio-donut ${focusedAssetClass ? "focused" : ""}`}
         style={{ "--donut-gradient": donutGradient(weights) } as CSSProperties}
-        role="img"
-        aria-label={`${title}: ${description}`}
+        role="button"
+        tabIndex={0}
+        aria-label={`${title}: ${description}. 조각을 누르면 자산군과 비중을 확인할 수 있습니다.`}
+        onPointerUp={selectAssetAtPointer}
+        onKeyDown={moveKeyboardSelection}
       >
-        <div className="donut-center">
-          <span>{focusedAssetClass ? shortAssetLabel(focusedAssetClass) : centerTop}</span>
-          <strong>{focusedWeight != null ? `${focusedWeight.toFixed(1)}%` : centerValue}</strong>
+        <div className="donut-center" aria-live="polite">
+          <span>{hasFocusedWeight ? shortAssetLabel(focusedAssetClass) : centerTop}</span>
+          <strong>{hasFocusedWeight ? `${focusedWeight.toFixed(1)}%` : centerValue}</strong>
+          <small>{hasFocusedWeight ? "선택한 자산군" : "조각을 눌러 확인"}</small>
         </div>
       </div>
     </figure>
