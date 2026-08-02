@@ -4,6 +4,12 @@
 
 KB스타뱅킹 내부의 자녀 자산관리 메뉴를 가정해 구현했습니다. 현재는 고정된 샘플 자녀와 자산 데이터를 사용하며, 프로토타입에서는 실제 계좌 조회·상품 가입·거래는 지원하지 않습니다.
 
+## 팀원 소개
+
+| <img src="https://github.com/jiseok00.png" width="200px"> | <img src="https://github.com/byabbya.png" width="200px"> |
+| :---: | :---: |
+| [강지석](https://github.com/jiseok00) | [박지수](https://github.com/byabbya) |
+
 ## 해결하려는 문제
 
 자녀 금융관리는 입출금통장 개설이나 단일 상품 가입에서 끝나기 쉽습니다. 예·적금과 투자자산이 나뉘어 있으면 전체 자산이 목표에 맞게 구성됐는지 판단하기도 어렵습니다.
