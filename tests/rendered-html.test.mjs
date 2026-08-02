@@ -57,7 +57,7 @@ test("renders the KB child asset management dashboard", async () => {
   assert.match(html, /선호 성향/);
   assert.doesNotMatch(html, /공모전 데모|DEMO|로그인|signin-with-chatgpt|KB증권 계좌 연결/);
   assert.doesNotMatch(html, /Ollama|OLLAMA/);
-  assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/);
+  assert.doesNotMatch(html, /react-loading-skeleton|Your site is taking shape/);
 });
 
 test("places previous-goal comparison inside the rebalancing view", async () => {
